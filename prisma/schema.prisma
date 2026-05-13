@@ -1,0 +1,112 @@
+// Prisma schema for Laundry QR backend (SQLite)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// NOTE: SQLite không hỗ trợ enum nên dùng String + constraint ở app layer.
+// Định nghĩa enum (TS) ở src/helpers/enums/index.ts.
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("STAFF") // ADMIN | STAFF
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders        Order[]
+  scanHistories ScanHistory[]
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  address   String?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  name      String
+  unit      String   @default("cái")
+  price     Decimal  @default(0)
+  isActive  Boolean  @default(true)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([isActive])
+}
+
+model Order {
+  id           String    @id @default(uuid())
+  code         String    @unique
+  qrToken      String    @unique
+  status       String    @default("CREATED") // CREATED | RECEIVED | WASHING | READY | DELIVERED | CANCELLED
+  totalAmount  Decimal   @default(0)
+  note         String?
+  pickupAt     DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+
+  items         OrderItem[]
+  scanHistories ScanHistory[]
+
+  @@index([status])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  productId String?
+  name      String
+  quantity  Int      @default(1)
+  weight    Decimal?
+  unitPrice Decimal  @default(0)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model ScanHistory {
+  id        String   @id @default(uuid())
+  orderId   String
+  userId    String?
+  action    String   @default("VIEW") // VIEW | UPDATE_STATUS
+  ip        String?
+  userAgent String?
+  meta      String?  // JSON serialized
+  scannedAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id])
+
+  @@index([orderId])
+  @@index([userId])
+}

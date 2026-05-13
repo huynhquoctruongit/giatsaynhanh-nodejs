@@ -1,0 +1,36 @@
+import type { Request, Response } from 'express';
+import { asyncHandler } from '../../helpers/utils/async-handler';
+import { customerService } from './customer.service';
+import { HTTP_STATUS } from '../../helpers/constants/http';
+
+export const customerController = {
+  list: asyncHandler(async (req: Request, res: Response) => {
+    const { search, page, pageSize } = req.query as unknown as {
+      search?: string;
+      page: number;
+      pageSize: number;
+    };
+    const data = await customerService.list({ search, page, pageSize });
+    res.json({ success: true, data });
+  }),
+
+  detail: asyncHandler(async (req: Request, res: Response) => {
+    const data = await customerService.getById(req.params.id);
+    res.json({ success: true, data });
+  }),
+
+  create: asyncHandler(async (req: Request, res: Response) => {
+    const data = await customerService.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json({ success: true, data });
+  }),
+
+  update: asyncHandler(async (req: Request, res: Response) => {
+    const data = await customerService.update(req.params.id, req.body);
+    res.json({ success: true, data });
+  }),
+
+  remove: asyncHandler(async (req: Request, res: Response) => {
+    await customerService.remove(req.params.id);
+    res.status(HTTP_STATUS.NO_CONTENT).send();
+  }),
+};

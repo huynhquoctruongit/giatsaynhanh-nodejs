@@ -1,0 +1,177 @@
+import { Prisma } from '@prisma/client';
+import { OrderStatus } from '../../helpers/enums';
+import { prisma } from '../../config/prisma';
+import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
+import { generateOrderCode } from '../../helpers/utils/order-code';
+import { generateQrToken } from '../../helpers/utils/qr';
+import type {
+  CreateOrderInput,
+  UpdateOrderInput,
+} from '../../helpers/validators/order.schema';
+
+const orderInclude = {
+  items: true,
+  customer: true,
+} satisfies Prisma.OrderInclude;
+
+const calcTotal = (items: CreateOrderInput['items']) =>
+  items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+
+const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  CREATED: [OrderStatus.RECEIVED, OrderStatus.CANCELLED],
+  RECEIVED: [OrderStatus.WASHING, OrderStatus.CANCELLED],
+  WASHING: [OrderStatus.READY, OrderStatus.CANCELLED],
+  READY: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+  DELIVERED: [],
+  CANCELLED: [],
+};
+
+export const orderService = {
+  async list(params: {
+    search?: string;
+    status?: OrderStatus;
+    customerId?: string;
+    page: number;
+    pageSize: number;
+  }) {
+    const { search, status, customerId, page, pageSize } = params;
+    const where: Prisma.OrderWhereInput = {
+      ...(status ? { status } : {}),
+      ...(customerId ? { customerId } : {}),
+      ...(search
+        ? {
+            OR: [
+              { code: { contains: search } },
+              { customer: { name: { contains: search } } },
+              { customer: { phone: { contains: search } } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, items] = await Promise.all([
+      prisma.order.count({ where }),
+      prisma.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    return { items, total, page, pageSize };
+  },
+
+  async getById(id: string) {
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
+    if (!order) throw new NotFoundError('Order not found');
+    return order;
+  },
+
+  async getByToken(token: string) {
+    const order = await prisma.order.findUnique({
+      where: { qrToken: token },
+      include: orderInclude,
+    });
+    if (!order) throw new NotFoundError('Invalid QR token');
+    return order;
+  },
+
+  async create(input: CreateOrderInput, createdById?: string) {
+    const customer = await prisma.customer.findUnique({
+      where: { id: input.customerId },
+    });
+    if (!customer) throw new NotFoundError('Customer not found');
+
+    const total = calcTotal(input.items);
+
+    return prisma.order.create({
+      data: {
+        code: generateOrderCode(),
+        qrToken: generateQrToken(),
+        customerId: input.customerId,
+        note: input.note,
+        pickupAt: input.pickupAt,
+        totalAmount: total,
+        createdById,
+        items: {
+          create: input.items.map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            quantity: i.quantity,
+            weight: i.weight,
+            unitPrice: i.unitPrice,
+          })),
+        },
+      },
+      include: orderInclude,
+    });
+  },
+
+  async update(id: string, input: UpdateOrderInput) {
+    const order = await this.getById(id);
+
+    if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestError('Cannot update a delivered/cancelled order');
+    }
+
+    const total = input.items ? calcTotal(input.items) : undefined;
+
+    return prisma.$transaction(async (tx) => {
+      if (input.items) {
+        await tx.orderItem.deleteMany({ where: { orderId: id } });
+        await tx.orderItem.createMany({
+          data: input.items.map((i) => ({
+            orderId: id,
+            productId: i.productId,
+            name: i.name,
+            quantity: i.quantity,
+            weight: i.weight,
+            unitPrice: i.unitPrice,
+          })),
+        });
+      }
+
+      return tx.order.update({
+        where: { id },
+        data: {
+          note: input.note,
+          pickupAt: input.pickupAt,
+          ...(total !== undefined ? { totalAmount: total } : {}),
+        },
+        include: orderInclude,
+      });
+    });
+  },
+
+  async updateStatus(id: string, status: OrderStatus) {
+    const order = await this.getById(id);
+    const allowed = VALID_TRANSITIONS[order.status as OrderStatus] ?? [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestError(
+        `Cannot transition from ${order.status} to ${status}`,
+      );
+    }
+
+    return prisma.order.update({
+      where: { id },
+      data: {
+        status,
+        deliveredAt: status === OrderStatus.DELIVERED ? new Date() : order.deliveredAt,
+      },
+      include: orderInclude,
+    });
+  },
+
+  async remove(id: string) {
+    const order = await this.getById(id);
+    if (order.status !== OrderStatus.CREATED && order.status !== OrderStatus.CANCELLED) {
+      throw new BadRequestError('Only CREATED or CANCELLED orders can be deleted');
+    }
+    await prisma.order.delete({ where: { id } });
+  },
+};
