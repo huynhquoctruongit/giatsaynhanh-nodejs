@@ -169,7 +169,26 @@ Validate transition ở `order.service.ts → VALID_TRANSITIONS`.
 - Cần PostgreSQL >= 13 (local/Docker/Neon đều dùng được).
 - FE cần có route `/q/:token` để gọi `GET /api/qr/:token` và render UI cho khách.
 - Khi in hoá đơn, FE có thể dùng `dataUrl` (data:image/png;base64,...) trực tiếp trong `<img src>`.
-- Deploy nhanh (gợi ý):
-  - **DB**: Neon (free)
-  - **App**: Render / Railway / Fly.io. Build command `npm install && npm run prisma:generate && npm run build`; start command `npm run prisma:deploy && npm start`.
-  - Nhớ set đầy đủ ENV trên host (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PUBLIC_WEB_URL`, `CORS_ORIGINS`).
+- Deploy nhanh: **Neon** (DB) + **Render** (app) — đã có sẵn `render.yaml` Blueprint, xem section dưới.
+
+## Deploy lên Render
+
+Project có sẵn `render.yaml` (Render Blueprint). Steps:
+
+1. **Tạo Neon DB trước** (xem section "Dùng Neon" phía trên), lấy 2 URL: `DATABASE_URL` (pooled) và `DIRECT_URL` (direct)
+2. Vào [render.com](https://render.com) → đăng nhập GitHub → **New → Blueprint**
+3. Connect repo `huynhquoctruongit/giatsaynhanh-nodejs`, branch `main` → Render sẽ tự phát hiện `render.yaml`
+4. Render hỏi 4 env cần điền tay:
+   - `DATABASE_URL` — pooled URL của Neon
+   - `DIRECT_URL` — direct URL của Neon
+   - `PUBLIC_WEB_URL` — URL của Vercel FE (vd `https://giatsaynhanh.vercel.app`)
+   - `CORS_ORIGINS` — URL FE, phân tách dấu phẩy (vd `https://giatsaynhanh.vercel.app`)
+   - (`JWT_SECRET` được Render auto-generate, `NODE_ENV=production` đã hardcode trong blueprint)
+5. Bấm **Apply** → Render build & deploy. Build command sẽ tự chạy `prisma migrate deploy` mỗi lần deploy nên schema luôn đồng bộ.
+6. Sau khi deploy thành công, vào tab **Shell** của service và chạy lần đầu để seed admin/staff:
+   ```bash
+   npm run seed
+   ```
+7. URL backend dạng `https://laundry-qr-backend.onrender.com`. Health check: `/api/health`.
+
+**Lưu ý Free plan**: sau ~15 phút không có request, instance bị sleep → request đầu tiên sau đó sẽ chậm (~30-60s wake-up). Lên `Starter` ($7/tháng) để always-on.
