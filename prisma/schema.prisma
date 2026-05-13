@@ -1,16 +1,17 @@
-// Prisma schema for Laundry QR backend (SQLite)
+// Prisma schema for Laundry QR backend (PostgreSQL / Neon)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// NOTE: SQLite không hỗ trợ enum nên dùng String + constraint ở app layer.
-// Định nghĩa enum (TS) ở src/helpers/enums/index.ts.
+// NOTE: Giữ status/role/action ở String để dễ tương thích migration cũ.
+// Enum TS ở src/helpers/enums/index.ts làm single source of truth.
 
 model User {
   id        String   @id @default(uuid())
@@ -42,7 +43,7 @@ model Product {
   id        String   @id @default(uuid())
   name      String
   unit      String   @default("cái")
-  price     Decimal  @default(0)
+  price     Decimal  @default(0) @db.Decimal(12, 2)
   isActive  Boolean  @default(true)
   note      String?
   createdAt DateTime @default(now())
@@ -58,7 +59,7 @@ model Order {
   code         String    @unique
   qrToken      String    @unique
   status       String    @default("CREATED") // CREATED | RECEIVED | WASHING | READY | DELIVERED | CANCELLED
-  totalAmount  Decimal   @default(0)
+  totalAmount  Decimal   @default(0) @db.Decimal(14, 2)
   note         String?
   pickupAt     DateTime?
   deliveredAt  DateTime?
@@ -84,8 +85,8 @@ model OrderItem {
   productId String?
   name      String
   quantity  Int      @default(1)
-  weight    Decimal?
-  unitPrice Decimal  @default(0)
+  weight    Decimal? @db.Decimal(8, 3)
+  unitPrice Decimal  @default(0) @db.Decimal(12, 2)
 
   order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])

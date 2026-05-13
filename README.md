@@ -36,7 +36,7 @@ prisma/
 
 ```bash
 cp .env.example .env
-# sửa DATABASE_URL, JWT_SECRET, PUBLIC_WEB_URL trong .env
+# sửa DATABASE_URL, DIRECT_URL, JWT_SECRET, PUBLIC_WEB_URL trong .env
 
 npm install
 npm run prisma:generate
@@ -50,6 +50,24 @@ Server chạy ở `http://localhost:4000`. Health check: `GET /api/health`.
 Tài khoản seed:
 - Admin: `admin@laundry.local` / `admin123`
 - Staff: `staff@laundry.local` / `staff123`
+
+## Dùng Neon (Postgres serverless)
+
+Neon free tier (~0.5GB + auto-suspend) đủ chạy demo/production nhỏ.
+
+1. Vào [neon.tech](https://neon.tech) → tạo project mới (chọn region gần nhất, ví dụ `ap-southeast-1` Singapore)
+2. Trong project Dashboard → tab **Connection Details**, copy 2 connection string:
+   - **Pooled connection** (có `-pooler` trong host) → đặt vào `DATABASE_URL`
+   - **Direct connection** (không có `-pooler`) → đặt vào `DIRECT_URL`
+3. Thêm `?sslmode=require` (đã có sẵn ở URL Neon) và `&pgbouncer=true&connect_timeout=15` vào `DATABASE_URL`
+4. Chạy migrate lần đầu:
+   ```bash
+   npm run prisma:generate
+   npm run prisma:deploy    # production-safe (không reset DB)
+   npm run seed             # tạo admin/staff demo
+   ```
+
+Lý do dùng 2 URL: Neon đi qua **PgBouncer** ở chế độ pooled (kết nối nhanh, ít connection) nhưng **không chạy được migrations**. `DIRECT_URL` bypass pooler để Prisma migrate chạy được.
 
 ## Luồng QR
 
@@ -148,6 +166,10 @@ Validate transition ở `order.service.ts → VALID_TRANSITIONS`.
 
 ## Ghi chú triển khai
 
-- Cần PostgreSQL >= 13 chạy local hoặc Docker.
+- Cần PostgreSQL >= 13 (local/Docker/Neon đều dùng được).
 - FE cần có route `/q/:token` để gọi `GET /api/qr/:token` và render UI cho khách.
 - Khi in hoá đơn, FE có thể dùng `dataUrl` (data:image/png;base64,...) trực tiếp trong `<img src>`.
+- Deploy nhanh (gợi ý):
+  - **DB**: Neon (free)
+  - **App**: Render / Railway / Fly.io. Build command `npm install && npm run prisma:generate && npm run build`; start command `npm run prisma:deploy && npm start`.
+  - Nhớ set đầy đủ ENV trên host (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `PUBLIC_WEB_URL`, `CORS_ORIGINS`).
