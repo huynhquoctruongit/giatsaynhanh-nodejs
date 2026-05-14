@@ -4,6 +4,7 @@ import { customerRouter } from './modules/customer/customer.routes';
 import { orderRouter } from './modules/order/order.routes';
 import { productRouter } from './modules/product/product.routes';
 import { qrRouter } from './modules/qr/qr.routes';
+import { staffRouter } from './modules/staff/staff.routes';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/customers', customerRouter);
 router.use('/products', productRouter);
 router.use('/orders', orderRouter);
 router.use('/qr', qrRouter);
+router.use('/staff', staffRouter);
 
 export { router as apiRouter };

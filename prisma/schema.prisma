@@ -14,14 +14,17 @@ datasource db {
 // Enum TS ở src/helpers/enums/index.ts làm single source of truth.
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      String   @default("STAFF") // ADMIN | STAFF
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  password           String
+  name               String
+  phone              String?
+  role               String   @default("STAFF") // ADMIN | STAFF
+  permissions        Json     @default("{}") // Record<PermissionKey, boolean>
+  orderViewTimeLimit String   @default("unlimited") // unlimited | 1d | 2d | 1w | 10d | 1m | 45d | 3m | 6m
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   orders        Order[]
   scanHistories ScanHistory[]

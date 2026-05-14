@@ -8,22 +8,7 @@ import {
 } from '../../helpers/utils/errors';
 import type { LoginInput, RegisterInput } from '../../helpers/validators/auth.schema';
 import { UserRole } from '../../helpers/enums';
-
-const toPublicUser = (user: {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  isActive: boolean;
-  createdAt: Date;
-}) => ({
-  id: user.id,
-  email: user.email,
-  name: user.name,
-  role: user.role as UserRole,
-  isActive: user.isActive,
-  createdAt: user.createdAt,
-});
+import { toPublicUser } from '../../helpers/mappers/user.mapper';
 
 export const authService = {
   async login(input: LoginInput) {
