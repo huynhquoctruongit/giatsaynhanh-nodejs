@@ -2,7 +2,7 @@ services:
   - type: web
     name: laundry-qr-backend
     runtime: node
-    region: singapore
+    region: virginia
     plan: free
     branch: main
     buildCommand: npm install && npm run prisma:generate && npm run build
