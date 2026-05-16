@@ -76,6 +76,11 @@ export const orderController = {
     res.send(buffer);
   }),
 
+  assign: asyncHandler(async (req: Request, res: Response) => {
+    const order = await orderService.assign(req.params.id, req.body.assignedToId);
+    res.json({ success: true, data: toOrderResponse(order) });
+  }),
+
   scanHistory: asyncHandler(async (req: Request, res: Response) => {
     const data = await scanHistoryService.listByOrder(req.params.id);
     res.json({ success: true, data });

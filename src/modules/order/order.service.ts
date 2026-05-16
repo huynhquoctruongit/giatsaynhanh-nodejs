@@ -12,6 +12,7 @@ import type {
 const orderInclude = {
   items: true,
   customer: true,
+  assignedTo: { select: { id: true, name: true } },
 } satisfies Prisma.OrderInclude;
 
 const calcTotal = (items: CreateOrderInput['items']) =>
@@ -88,6 +89,7 @@ export const orderService = {
     if (!customer) throw new NotFoundError('Customer not found');
 
     const total = calcTotal(input.items);
+    const discountAmount = input.discountAmount ?? 0;
 
     return prisma.order.create({
       data: {
@@ -97,6 +99,8 @@ export const orderService = {
         note: input.note,
         pickupAt: input.pickupAt,
         totalAmount: total,
+        discountAmount,
+        assignedToId: input.assignedToId,
         createdById,
         items: {
           create: input.items.map((i) => ({
@@ -142,6 +146,8 @@ export const orderService = {
           note: input.note,
           pickupAt: input.pickupAt,
           ...(total !== undefined ? { totalAmount: total } : {}),
+          ...(input.discountAmount !== undefined ? { discountAmount: input.discountAmount } : {}),
+          ...(input.assignedToId !== undefined ? { assignedToId: input.assignedToId } : {}),
         },
         include: orderInclude,
       });
@@ -163,6 +169,15 @@ export const orderService = {
         status,
         deliveredAt: status === OrderStatus.DELIVERED ? new Date() : order.deliveredAt,
       },
+      include: orderInclude,
+    });
+  },
+
+  async assign(id: string, assignedToId: string) {
+    await this.getById(id);
+    return prisma.order.update({
+      where: { id },
+      data: { assignedToId },
       include: orderInclude,
     });
   },

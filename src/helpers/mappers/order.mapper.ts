@@ -1,9 +1,12 @@
-import type { Order, OrderItem, Customer } from '@prisma/client';
+import type { Order, OrderItem, Customer, User } from '@prisma/client';
 import { buildQrUrl } from '../utils/qr';
+
+type AssignedTo = Pick<User, 'id' | 'name'> | null;
 
 type OrderWith = Order & {
   items?: OrderItem[];
   customer?: Customer | null;
+  assignedTo?: AssignedTo;
 };
 
 export const toOrderResponse = (order: OrderWith) => ({
@@ -11,6 +14,7 @@ export const toOrderResponse = (order: OrderWith) => ({
   code: order.code,
   status: order.status,
   totalAmount: Number(order.totalAmount),
+  discountAmount: Number(order.discountAmount ?? 0),
   note: order.note,
   pickupAt: order.pickupAt,
   deliveredAt: order.deliveredAt,
@@ -23,6 +27,9 @@ export const toOrderResponse = (order: OrderWith) => ({
         phone: order.customer.phone,
         address: order.customer.address,
       }
+    : null,
+  assignedTo: order.assignedTo
+    ? { id: order.assignedTo.id, name: order.assignedTo.name }
     : null,
   items:
     order.items?.map((i) => ({

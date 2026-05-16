@@ -5,6 +5,8 @@ export const createProductSchema = z.object({
     name: z.string().min(1),
     unit: z.string().min(1).default('cái'),
     price: z.coerce.number().nonnegative(),
+    importPrice: z.coerce.number().nonnegative().optional(),
+    costPrice: z.coerce.number().nonnegative().optional(),
     isActive: z.coerce.boolean().optional().default(true),
     note: z.string().optional(),
   }),

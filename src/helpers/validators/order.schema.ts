@@ -14,6 +14,8 @@ export const createOrderSchema = z.object({
     customerId: z.string().uuid(),
     note: z.string().optional(),
     pickupAt: z.coerce.date().optional(),
+    assignedToId: z.string().uuid().optional(),
+    discountAmount: z.coerce.number().nonnegative().optional().default(0),
     items: z.array(orderItemSchema).min(1, 'Order must have at least one item'),
   }),
 });
@@ -23,7 +25,16 @@ export const updateOrderSchema = z.object({
   body: z.object({
     note: z.string().optional(),
     pickupAt: z.coerce.date().optional(),
+    assignedToId: z.string().uuid().optional(),
+    discountAmount: z.coerce.number().nonnegative().optional(),
     items: z.array(orderItemSchema).min(1).optional(),
+  }),
+});
+
+export const assignOrderSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    assignedToId: z.string().uuid(),
   }),
 });
 

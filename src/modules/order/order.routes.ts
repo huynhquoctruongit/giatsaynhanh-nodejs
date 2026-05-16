@@ -3,6 +3,7 @@ import { orderController } from './order.controller';
 import { authStaff } from '../../middlewares/auth';
 import { validate } from '../../middlewares/validate';
 import {
+  assignOrderSchema,
   createOrderSchema,
   listOrderSchema,
   updateOrderSchema,
@@ -23,6 +24,7 @@ router.patch(
   orderController.updateStatus,
 );
 router.delete('/:id', orderController.remove);
+router.patch('/:id/assign', validate(assignOrderSchema), orderController.assign);
 
 router.get('/:id/qr', orderController.qrDataUrl);
 router.get('/:id/qr.png', orderController.qrPng);
