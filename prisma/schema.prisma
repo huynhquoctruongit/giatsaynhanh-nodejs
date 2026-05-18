@@ -44,8 +44,9 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  orders Order[]
-  debts  CustomerDebt[]
+  orders   Order[]
+  bookings Booking[]
+  debts    CustomerDebt[]
 }
 
 model Product {
@@ -90,9 +91,51 @@ model Order {
   items         OrderItem[]
   scanHistories ScanHistory[]
 
+  bookingsAsSource   Booking[] @relation("BookingSource")
+  bookingFromConvert Booking?  @relation("BookingConverted")
+
   @@index([status])
   @@index([customerId])
   @@index([createdAt])
+}
+
+model Booking {
+  id               String   @id @default(uuid())
+  code             String   @unique // BK-yyyymmdd-XXXXX
+  status           String   @default("PENDING") // PENDING | CONFIRMED | CANCELLED | CONVERTED
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id])
+  sourceOrderId    String?
+  sourceOrder      Order?   @relation("BookingSource", fields: [sourceOrderId], references: [id])
+  convertedOrderId String?   @unique
+  convertedOrder   Order?   @relation("BookingConverted", fields: [convertedOrderId], references: [id])
+  phone            String
+  address          String
+  pickupAt         DateTime?
+  deliveryAt       DateTime?
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  items BookingItem[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+model BookingItem {
+  id        String   @id @default(uuid())
+  bookingId String
+  productId String?
+  name      String
+  quantity  Int      @default(1)
+  weight    Decimal? @db.Decimal(8, 3)
+  unitPrice Decimal  @default(0) @db.Decimal(12, 2)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
 }
 
 model OrderItem {
@@ -279,7 +322,7 @@ model ShopSettings {
   invoiceShowAddress      Boolean  @default(true)
   invoiceShowWebsite      Boolean  @default(false)
   invoiceShowBarcode      Boolean  @default(true)
-  invoiceShowQR           Boolean  @default(false)
+  invoiceShowQR           Boolean  @default(true)
   invoiceShowDebt         Boolean  @default(true)
   openingHours            String?  // e.g. "6h30 - 22h00"
   labelTemplate           String?

@@ -20,6 +20,14 @@ export const ScanAction = {
 } as const;
 export type ScanAction = (typeof ScanAction)[keyof typeof ScanAction];
 
+export const BookingStatus = {
+  PENDING: 'PENDING',
+  CONFIRMED: 'CONFIRMED',
+  CANCELLED: 'CANCELLED',
+  CONVERTED: 'CONVERTED',
+} as const;
+export type BookingStatus = (typeof BookingStatus)[keyof typeof BookingStatus];
+
 export const ORDER_STATUS_FLOW = [
   'CREATED',
   'RECEIVED',

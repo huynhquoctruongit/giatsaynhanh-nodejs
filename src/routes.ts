@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authRouter } from './modules/auth/auth.routes';
+import { bookingRouter } from './modules/booking/booking.routes';
 import { customerRouter } from './modules/customer/customer.routes';
 import { debtRouter } from './modules/debt/debt.routes';
 import { financeRouter } from './modules/finance/finance.routes';
@@ -20,6 +21,7 @@ router.get('/health', (_req, res) => {
 });
 
 router.use('/auth', authRouter);
+router.use('/bookings', bookingRouter);
 router.use('/customers', customerRouter);
 router.use('/debt', debtRouter);
 router.use('/finance', financeRouter);
