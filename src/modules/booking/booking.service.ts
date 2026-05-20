@@ -30,6 +30,23 @@ export const bookingService = {
     if (!order) throw new NotFoundError('Mã QR không hợp lệ hoặc đã bị huỷ');
     if (!order.customer) throw new NotFoundError('Đơn không có khách hàng');
 
+    const [activeOrders, services] = await Promise.all([
+      prisma.order.findMany({
+        where: {
+          customerId: order.customer.id,
+          status: { notIn: ['DELIVERED', 'CANCELLED'] },
+        },
+        include: { items: true },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+      }),
+      prisma.product.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+        take: 100,
+      }),
+    ]);
+
     return {
       sourceOrder: {
         id: order.id,
@@ -48,6 +65,25 @@ export const bookingService = {
         quantity: i.quantity,
         weight: i.weight ? Number(i.weight) : null,
         unitPrice: Number(i.unitPrice),
+      })),
+      activeOrders: activeOrders.map((o) => ({
+        id: o.id,
+        code: o.code,
+        status: o.status,
+        totalAmount: Number(o.totalAmount),
+        createdAt: o.createdAt,
+        pickupAt: o.pickupAt,
+        items: o.items.map((i) => ({
+          name: i.name,
+          quantity: i.quantity,
+          weight: i.weight ? Number(i.weight) : null,
+        })),
+      })),
+      services: services.map((p) => ({
+        id: p.id,
+        name: p.name,
+        unit: p.unit,
+        price: Number(p.price),
       })),
     };
   },
