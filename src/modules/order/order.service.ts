@@ -19,8 +19,9 @@ const calcTotal = (items: CreateOrderInput['items']) =>
   items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
 
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  CREATED: [OrderStatus.RECEIVED, OrderStatus.CANCELLED],
-  RECEIVED: [OrderStatus.WASHING, OrderStatus.CANCELLED],
+  // Đơn được tạo ở trạng thái READY (đã giặt xong), chỉ chờ khách lấy
+  CREATED: [OrderStatus.READY, OrderStatus.CANCELLED],
+  RECEIVED: [OrderStatus.READY, OrderStatus.CANCELLED],
   WASHING: [OrderStatus.READY, OrderStatus.CANCELLED],
   READY: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
   DELIVERED: [],
@@ -96,6 +97,7 @@ export const orderService = {
         code: generateOrderCode(),
         qrToken: generateQrToken(),
         customerId: input.customerId,
+        status: OrderStatus.READY,
         note: input.note,
         pickupAt: input.pickupAt,
         totalAmount: total,
@@ -184,8 +186,8 @@ export const orderService = {
 
   async remove(id: string) {
     const order = await this.getById(id);
-    if (order.status !== OrderStatus.CREATED && order.status !== OrderStatus.CANCELLED) {
-      throw new BadRequestError('Only CREATED or CANCELLED orders can be deleted');
+    if (order.status === OrderStatus.DELIVERED) {
+      throw new BadRequestError('Cannot delete a delivered order');
     }
     await prisma.order.delete({ where: { id } });
   },
