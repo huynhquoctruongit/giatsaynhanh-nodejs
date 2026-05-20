@@ -15,8 +15,15 @@ const orderInclude = {
   assignedTo: { select: { id: true, name: true } },
 } satisfies Prisma.OrderInclude;
 
+// Nếu có cân (weight) thì lấy: cân × đơn giá × SL (giặt sấy tính theo kg)
+// Nếu không có cân thì lấy: SL × đơn giá (giặt khô tính theo cái)
+const lineTotal = (i: { quantity: number; unitPrice: number; weight?: number | null }) =>
+  i.weight && i.weight > 0
+    ? i.weight * i.unitPrice * (i.quantity || 1)
+    : i.quantity * i.unitPrice;
+
 const calcTotal = (items: CreateOrderInput['items']) =>
-  items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+  items.reduce((sum, i) => sum + lineTotal(i), 0);
 
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   // Đơn được tạo ở trạng thái READY (đã giặt xong), chỉ chờ khách lấy
