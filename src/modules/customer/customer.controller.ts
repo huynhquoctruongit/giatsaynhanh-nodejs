@@ -33,4 +33,23 @@ export const customerController = {
     await customerService.remove(req.params.id);
     res.status(HTTP_STATUS.NO_CONTENT).send();
   }),
+
+  stats: asyncHandler(async (req: Request, res: Response) => {
+    const data = await customerService.getStats(req.params.id);
+    res.json({ success: true, data });
+  }),
+
+  top: asyncHandler(async (req: Request, res: Response) => {
+    const { from, to, limit } = req.query as unknown as {
+      from?: string;
+      to?: string;
+      limit?: number;
+    };
+    const data = await customerService.topCustomers({
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+    res.json({ success: true, data });
+  }),
 };

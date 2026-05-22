@@ -13,7 +13,9 @@ const router = Router();
 router.use(authStaff);
 
 router.get('/', validate(listCustomerSchema), customerController.list);
+router.get('/top', customerController.top);
 router.get('/:id', customerController.detail);
+router.get('/:id/stats', customerController.stats);
 router.post('/', validate(createCustomerSchema), customerController.create);
 router.patch('/:id', validate(updateCustomerSchema), customerController.update);
 router.delete('/:id', customerController.remove);
