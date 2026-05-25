@@ -41,12 +41,15 @@ model Customer {
   phone     String   @unique
   address   String?
   note      String?
+  qrToken   String   @unique @default(uuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   orders   Order[]
   bookings Booking[]
   debts    CustomerDebt[]
+
+  @@index([qrToken])
 }
 
 model Product {

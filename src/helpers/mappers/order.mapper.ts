@@ -42,8 +42,9 @@ export const toOrderResponse = (order: OrderWith) => ({
       subtotal: Number(i.unitPrice) * i.quantity,
     })) ?? [],
   qr: {
-    token: order.qrToken,
-    url: buildQrUrl(order.qrToken),
+    // Prefer customer-level permanent QR; fall back to order-level for legacy data.
+    token: order.customer?.qrToken ?? order.qrToken,
+    url: buildQrUrl(order.customer?.qrToken ?? order.qrToken),
   },
 });
 

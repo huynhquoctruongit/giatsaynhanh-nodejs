@@ -9,6 +9,32 @@ import type {
   CreateBookingFromQrInput,
 } from '../../helpers/validators/booking.schema';
 
+// Resolve token → { customer, sourceOrder }
+// Supports both new customer-level QR and legacy order-level QR (backward compat).
+async function resolveCustomerFromToken(token: string) {
+  // New: customer-level QR (permanent)
+  const customer = await prisma.customer.findUnique({
+    where: { qrToken: token },
+  });
+  if (customer) {
+    const sourceOrder = await prisma.order.findFirst({
+      where: { customerId: customer.id },
+      orderBy: { createdAt: 'desc' },
+      include: { items: true },
+    });
+    return { customer, sourceOrder };
+  }
+
+  // Legacy: order-level QR (backward compat for already-printed invoices)
+  const order = await prisma.order.findUnique({
+    where: { qrToken: token },
+    include: { customer: true, items: true },
+  });
+  if (!order) throw new NotFoundError('Mã QR không hợp lệ hoặc đã bị huỷ');
+  if (!order.customer) throw new NotFoundError('Đơn không có khách hàng');
+  return { customer: order.customer, sourceOrder: order };
+}
+
 const bookingInclude = {
   items: true,
   customer: true,
@@ -23,17 +49,12 @@ const generateBookingCode = (): string => {
 
 export const bookingService = {
   async getQrPrefill(token: string) {
-    const order = await prisma.order.findUnique({
-      where: { qrToken: token },
-      include: { customer: true, items: true },
-    });
-    if (!order) throw new NotFoundError('Mã QR không hợp lệ hoặc đã bị huỷ');
-    if (!order.customer) throw new NotFoundError('Đơn không có khách hàng');
+    const { customer, sourceOrder } = await resolveCustomerFromToken(token);
 
     const [activeOrders, services] = await Promise.all([
       prisma.order.findMany({
         where: {
-          customerId: order.customer.id,
+          customerId: customer.id,
           status: { notIn: ['DELIVERED', 'CANCELLED'] },
         },
         include: { items: true },
@@ -48,18 +69,16 @@ export const bookingService = {
     ]);
 
     return {
-      sourceOrder: {
-        id: order.id,
-        code: order.code,
-        createdAt: order.createdAt,
-      },
+      sourceOrder: sourceOrder
+        ? { id: sourceOrder.id, code: sourceOrder.code, createdAt: sourceOrder.createdAt }
+        : null,
       customer: {
-        id: order.customer.id,
-        name: order.customer.name,
-        phone: order.customer.phone,
-        address: order.customer.address,
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        address: customer.address,
       },
-      items: order.items.map((i) => ({
+      items: (sourceOrder?.items ?? []).map((i) => ({
         productId: i.productId,
         name: i.name,
         quantity: i.quantity,
@@ -89,35 +108,25 @@ export const bookingService = {
   },
 
   async createFromQr(token: string, input: CreateBookingFromQrInput) {
-    const order = await prisma.order.findUnique({
-      where: { qrToken: token },
-      include: { customer: true },
-    });
-    if (!order) throw new NotFoundError('Mã QR không hợp lệ hoặc đã bị huỷ');
-    if (!order.customer) throw new NotFoundError('Đơn không có khách hàng');
+    const { customer, sourceOrder } = await resolveCustomerFromToken(token);
 
-    const customerId = order.customer.id;
+    const customerId = customer.id;
     const trimmedPhone = input.phone.trim();
     const trimmedAddress = input.address.trim();
 
     return prisma.$transaction(async (tx) => {
       const customerUpdate: Prisma.CustomerUpdateInput = {};
-      if (trimmedPhone && trimmedPhone !== order.customer!.phone) {
-        const existing = await tx.customer.findUnique({
-          where: { phone: trimmedPhone },
-        });
+      if (trimmedPhone && trimmedPhone !== customer.phone) {
+        const existing = await tx.customer.findUnique({ where: { phone: trimmedPhone } });
         if (!existing || existing.id === customerId) {
           customerUpdate.phone = trimmedPhone;
         }
       }
-      if (trimmedAddress && trimmedAddress !== (order.customer!.address ?? '')) {
+      if (trimmedAddress && trimmedAddress !== (customer.address ?? '')) {
         customerUpdate.address = trimmedAddress;
       }
       if (Object.keys(customerUpdate).length > 0) {
-        await tx.customer.update({
-          where: { id: customerId },
-          data: customerUpdate,
-        });
+        await tx.customer.update({ where: { id: customerId }, data: customerUpdate });
       }
 
       return tx.booking.create({
@@ -125,7 +134,7 @@ export const bookingService = {
           code: generateBookingCode(),
           status: BookingStatus.PENDING,
           customerId,
-          sourceOrderId: order.id,
+          sourceOrderId: sourceOrder?.id,
           phone: trimmedPhone,
           address: trimmedAddress,
           pickupAt: input.pickupAt,
