@@ -38,7 +38,7 @@ export const bookingService = {
         },
         include: { items: true },
         orderBy: { createdAt: 'desc' },
-        take: 3,
+        take: 2,
       }),
       prisma.product.findMany({
         where: { isActive: true },
