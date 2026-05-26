@@ -13,6 +13,7 @@ const orderInclude = {
   items: true,
   customer: true,
   assignedTo: { select: { id: true, name: true } },
+  bookingFromConvert: { select: { id: true, code: true } },
 } satisfies Prisma.OrderInclude;
 
 // Nếu có cân (weight) thì lấy: cân × đơn giá × SL (giặt sấy tính theo kg)

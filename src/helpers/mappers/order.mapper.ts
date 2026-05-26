@@ -1,4 +1,4 @@
-import type { Order, OrderItem, Customer, User } from '@prisma/client';
+import type { Booking, Order, OrderItem, Customer, User } from '@prisma/client';
 import { buildQrUrl } from '../utils/qr';
 
 type AssignedTo = Pick<User, 'id' | 'name'> | null;
@@ -7,6 +7,7 @@ type OrderWith = Order & {
   items?: OrderItem[];
   customer?: Customer | null;
   assignedTo?: AssignedTo;
+  bookingFromConvert?: Pick<Booking, 'id' | 'code'> | null;
 };
 
 export const toOrderResponse = (order: OrderWith) => ({
@@ -46,6 +47,10 @@ export const toOrderResponse = (order: OrderWith) => ({
     token: order.customer?.qrToken ?? order.qrToken,
     url: buildQrUrl(order.customer?.qrToken ?? order.qrToken),
   },
+  fromBooking: Boolean(order.bookingFromConvert),
+  booking: order.bookingFromConvert
+    ? { id: order.bookingFromConvert.id, code: order.bookingFromConvert.code }
+    : null,
 });
 
 export const toPublicOrderResponse = (order: OrderWith) => ({

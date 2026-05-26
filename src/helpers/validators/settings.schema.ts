@@ -26,6 +26,7 @@ export const updateSettingsSchema = z.object({
     loyaltyPointsRate: z.coerce.number().nonnegative().nullable().optional(),
     deliveryEnabled: z.boolean().optional(),
     deliveryFee: z.coerce.number().nonnegative().nullable().optional(),
+    bookingShippingFee: z.coerce.number().nonnegative().nullable().optional(),
     allowNoShiftOrder: z.boolean().optional(),
   }),
 });

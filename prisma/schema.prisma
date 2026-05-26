@@ -334,6 +334,7 @@ model ShopSettings {
   loyaltyPointsRate    Decimal? @db.Decimal(8, 4)
   deliveryEnabled      Boolean  @default(false)
   deliveryFee          Decimal? @db.Decimal(10, 2)
+  bookingShippingFee   Decimal? @db.Decimal(10, 2) // cộng trên hoá đơn đơn từ booking QR
   allowNoShiftOrder    Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
