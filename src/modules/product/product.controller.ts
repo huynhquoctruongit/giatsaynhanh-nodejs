@@ -8,6 +8,10 @@ const toResponse = (p: {
   name: string;
   unit: string;
   price: unknown;
+  importPrice?: unknown;
+  costPrice?: unknown;
+  wholesaleEnabled?: boolean;
+  wholesaleTiers?: unknown;
   isActive: boolean;
   note: string | null;
   createdAt: Date;
@@ -15,6 +19,10 @@ const toResponse = (p: {
 }) => ({
   ...p,
   price: Number(p.price),
+  importPrice: p.importPrice != null ? Number(p.importPrice) : null,
+  costPrice: p.costPrice != null ? Number(p.costPrice) : null,
+  wholesaleEnabled: p.wholesaleEnabled ?? false,
+  wholesaleTiers: (p.wholesaleTiers as unknown[] | null) ?? null,
 });
 
 export const productController = {

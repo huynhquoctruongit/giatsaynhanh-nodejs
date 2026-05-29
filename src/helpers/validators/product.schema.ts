@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const wholesaleTierSchema = z.object({
+  minQty: z.number().int().min(1),
+  price: z.number().nonnegative(),
+});
+
 export const createProductSchema = z.object({
   body: z.object({
     name: z.string().min(1),
@@ -7,6 +12,8 @@ export const createProductSchema = z.object({
     price: z.coerce.number().nonnegative(),
     importPrice: z.coerce.number().nonnegative().optional(),
     costPrice: z.coerce.number().nonnegative().optional(),
+    wholesaleEnabled: z.coerce.boolean().optional().default(false),
+    wholesaleTiers: z.array(wholesaleTierSchema).optional().nullable(),
     isActive: z.coerce.boolean().optional().default(true),
     note: z.string().optional(),
   }),
