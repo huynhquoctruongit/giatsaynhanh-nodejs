@@ -37,6 +37,17 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export const orderService = {
+  /** Đếm số đơn theo từng trạng thái (dùng cho chips ở màn danh sách) */
+  async statusCounts(): Promise<Record<string, number>> {
+    const groups = await prisma.order.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    });
+    const counts: Record<string, number> = {};
+    for (const g of groups) counts[g.status] = g._count.id;
+    return counts;
+  },
+
   async list(params: {
     search?: string;
     status?: OrderStatus;

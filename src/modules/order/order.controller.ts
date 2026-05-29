@@ -8,6 +8,11 @@ import { scanHistoryService } from '../qr/scan-history.service';
 import type { OrderStatus } from '../../helpers/enums';
 
 export const orderController = {
+  statusCounts: asyncHandler(async (_req: Request, res: Response) => {
+    const data = await orderService.statusCounts();
+    res.json({ success: true, data });
+  }),
+
   list: asyncHandler(async (req: Request, res: Response) => {
     const q = req.query as unknown as {
       search?: string;
