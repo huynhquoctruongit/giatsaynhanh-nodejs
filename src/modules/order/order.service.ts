@@ -4,6 +4,7 @@ import { prisma } from '../../config/prisma';
 import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
 import { generateOrderCode } from '../../helpers/utils/order-code';
 import { generateQrToken } from '../../helpers/utils/qr';
+import { sendPush, getActiveTokens } from '../../lib/firebase';
 import type {
   CreateOrderInput,
   UpdateOrderInput,
@@ -111,7 +112,7 @@ export const orderService = {
     const total = calcTotal(input.items);
     const discountAmount = input.discountAmount ?? 0;
 
-    return prisma.order.create({
+    const order = await prisma.order.create({
       data: {
         code: generateOrderCode(),
         qrToken: generateQrToken(),
@@ -135,6 +136,18 @@ export const orderService = {
       },
       include: orderInclude,
     });
+
+    // Push notification — fire and forget
+    getActiveTokens(prisma).then((tokens) =>
+      sendPush(
+        tokens,
+        '🧺 Đơn mới',
+        `${order.code} · ${order.customer?.name ?? 'Khách'}`,
+        { orderId: order.id, type: 'NEW_ORDER' },
+      ),
+    );
+
+    return order;
   },
 
   async update(id: string, input: UpdateOrderInput) {
@@ -184,7 +197,7 @@ export const orderService = {
       );
     }
 
-    return prisma.order.update({
+    const updated = await prisma.order.update({
       where: { id },
       data: {
         status,
@@ -192,6 +205,20 @@ export const orderService = {
       },
       include: orderInclude,
     });
+
+    // Push notification khi đơn được giao thành công
+    if (status === OrderStatus.DELIVERED) {
+      getActiveTokens(prisma).then((tokens) =>
+        sendPush(
+          tokens,
+          '✅ Đơn đã giao',
+          `${updated.code} · ${updated.customer?.name ?? 'Khách'} đã nhận đồ`,
+          { orderId: updated.id, type: 'ORDER_DELIVERED' },
+        ),
+      );
+    }
+
+    return updated;
   },
 
   async assign(id: string, assignedToId: string) {

@@ -20,4 +20,15 @@ export const authController = {
     const data = await authService.me(req.user.sub);
     res.json({ success: true, data });
   }),
+
+  updateFcmToken: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ success: false, message: 'token is required' });
+      return;
+    }
+    await authService.updateFcmToken(req.user.sub, token);
+    res.json({ success: true });
+  }),
 };

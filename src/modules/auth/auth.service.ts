@@ -48,4 +48,8 @@ export const authService = {
     if (!user) throw new NotFoundError('User not found');
     return toPublicUser(user);
   },
+
+  async updateFcmToken(userId: string, fcmToken: string) {
+    await prisma.user.update({ where: { id: userId }, data: { fcmToken } });
+  },
 };

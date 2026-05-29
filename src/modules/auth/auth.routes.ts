@@ -18,5 +18,6 @@ router.post(
 );
 
 router.get('/me', authStaff, authController.me);
+router.patch('/fcm-token', authStaff, authController.updateFcmToken);
 
 export { router as authRouter };

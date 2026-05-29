@@ -9,3 +9,6 @@ prisma/migrations/dev.db*
 prisma/dev.db
 prisma/*.db
 prisma/*.db-journal
+
+# Firebase service account key (sensitive — never commit)
+*firebase-adminsdk*.json
