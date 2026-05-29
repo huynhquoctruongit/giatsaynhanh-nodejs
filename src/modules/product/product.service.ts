@@ -6,6 +6,13 @@ import type {
   UpdateProductInput,
 } from '../../helpers/validators/product.schema';
 
+/** Chuyển null → Prisma.JsonNull để Prisma lưu JSON nullable đúng cách */
+function toJsonField(v: unknown[] | null | undefined): Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined {
+  if (v === null) return Prisma.JsonNull;
+  if (v === undefined) return undefined;
+  return v as Prisma.InputJsonValue;
+}
+
 export const productService = {
   async list(params: {
     search?: string;
@@ -39,12 +46,19 @@ export const productService = {
   },
 
   async create(input: CreateProductInput) {
-    return prisma.product.create({ data: input });
+    const { wholesaleTiers, ...rest } = input;
+    return prisma.product.create({
+      data: { ...rest, wholesaleTiers: toJsonField(wholesaleTiers) },
+    });
   },
 
   async update(id: string, input: UpdateProductInput) {
     await this.getById(id);
-    return prisma.product.update({ where: { id }, data: input });
+    const { wholesaleTiers, ...rest } = input;
+    return prisma.product.update({
+      where: { id },
+      data: { ...rest, ...(wholesaleTiers !== undefined ? { wholesaleTiers: toJsonField(wholesaleTiers) } : {}) },
+    });
   },
 
   async remove(id: string) {
