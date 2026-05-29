@@ -37,7 +37,7 @@ export async function sendPush(
       data,
       android: {
         priority: 'high',
-        notification: { sound: 'default', channelId: 'orders' },
+        notification: { sound: 'default' },
       },
     });
     console.log(`[FCM] Sent ${result.successCount}/${tokens.length} — fail: ${result.failureCount}`);
