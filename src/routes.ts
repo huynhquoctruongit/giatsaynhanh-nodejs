@@ -20,6 +20,30 @@ router.get('/health', (_req, res) => {
   res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
 });
 
+// Debug FCM — kiểm tra Firebase init + token đã lưu
+router.get('/debug/fcm', async (_req, res) => {
+  try {
+    const { prisma } = await import('./config/prisma');
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, fcmToken: true },
+    });
+    const hasServiceAccount = !!process.env.FIREBASE_SERVICE_ACCOUNT;
+    const tokens = users.filter(u => u.fcmToken);
+    res.json({
+      success: true,
+      data: {
+        hasServiceAccount,
+        totalUsers: users.length,
+        usersWithToken: tokens.length,
+        tokens: tokens.map(u => ({ name: u.name, tokenPreview: u.fcmToken?.slice(0, 20) + '...' })),
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
 router.use('/auth', authRouter);
 router.use('/bookings', bookingRouter);
 router.use('/customers', customerRouter);
