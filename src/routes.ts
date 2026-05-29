@@ -20,6 +20,23 @@ router.get('/health', (_req, res) => {
   res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
 });
 
+// Debug FCM — gửi test push đến tất cả token
+router.get('/debug/fcm/test-push', async (_req, res) => {
+  try {
+    const { prisma } = await import('./config/prisma.js');
+    const { sendPush, getActiveTokens } = await import('./lib/firebase.js');
+    const tokens = await getActiveTokens(prisma);
+    if (!tokens.length) {
+      res.json({ success: false, message: 'Không có token nào' });
+      return;
+    }
+    await sendPush(tokens, '🧪 Test push', 'Nếu thấy cái này là FCM hoạt động!', { type: 'TEST' });
+    res.json({ success: true, message: `Đã gửi tới ${tokens.length} thiết bị` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
 // Debug FCM — kiểm tra Firebase init + token đã lưu
 router.get('/debug/fcm', async (_req, res) => {
   try {
