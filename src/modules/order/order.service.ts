@@ -62,8 +62,18 @@ export const orderService = {
     pageSize: number;
   }) {
     const { search, status, customerId, page, pageSize } = params;
-    // Tìm kiếm cả dạng có dấu lẫn không dấu
-    const searchNorm = search ? normalizeVN(search) : undefined;
+
+    // Tìm customer IDs khớp với search (có dấu hoặc không dấu) dùng unaccent
+    let matchedCustomerIds: string[] = [];
+    if (search) {
+      const rows = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Customer"
+        WHERE unaccent(LOWER(name)) LIKE unaccent(LOWER(${`%${search}%`}))
+           OR phone LIKE ${`%${search}%`}
+      `;
+      matchedCustomerIds = rows.map((r) => r.id);
+    }
+
     const where: Prisma.OrderWhereInput = {
       ...(status ? { status } : {}),
       ...(customerId ? { customerId } : {}),
@@ -71,9 +81,9 @@ export const orderService = {
         ? {
             OR: [
               { code: { contains: search, mode: 'insensitive' } },
-              { customer: { name: { contains: search, mode: 'insensitive' } } },
-              { customer: { name: { contains: searchNorm, mode: 'insensitive' } } },
-              { customer: { phone: { contains: search } } },
+              ...(matchedCustomerIds.length > 0
+                ? [{ customerId: { in: matchedCustomerIds } }]
+                : []),
             ],
           }
         : {}),
