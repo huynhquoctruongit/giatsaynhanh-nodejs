@@ -39,7 +39,8 @@ export const orderController = {
   }),
 
   update: asyncHandler(async (req: Request, res: Response) => {
-    const order = await orderService.update(req.params.id, req.body);
+    const isAdmin = req.user?.role === 'ADMIN';
+    const order = await orderService.update(req.params.id, req.body, isAdmin);
     res.json({ success: true, data: toOrderResponse(order) });
   }),
 
@@ -57,7 +58,8 @@ export const orderController = {
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {
-    await orderService.remove(req.params.id);
+    const isAdmin = req.user?.role === 'ADMIN';
+    await orderService.remove(req.params.id, isAdmin);
     res.status(HTTP_STATUS.NO_CONTENT).send();
   }),
 

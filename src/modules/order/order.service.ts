@@ -158,10 +158,10 @@ export const orderService = {
     return order;
   },
 
-  async update(id: string, input: UpdateOrderInput) {
+  async update(id: string, input: UpdateOrderInput, isAdmin = false) {
     const order = await this.getById(id);
 
-    if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED) {
+    if (!isAdmin && (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED)) {
       throw new BadRequestError('Cannot update a delivered/cancelled order');
     }
 
@@ -238,9 +238,9 @@ export const orderService = {
     });
   },
 
-  async remove(id: string) {
+  async remove(id: string, isAdmin = false) {
     const order = await this.getById(id);
-    if (order.status === OrderStatus.DELIVERED) {
+    if (!isAdmin && order.status === OrderStatus.DELIVERED) {
       throw new BadRequestError('Cannot delete a delivered order');
     }
     await prisma.order.delete({ where: { id } });
