@@ -1,6 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { OrderStatus } from '../../helpers/enums';
 import { prisma } from '../../config/prisma';
+
+/** Chuẩn hoá tiếng Việt có dấu → không dấu để tìm kiếm */
+function normalizeVN(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+}
 import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
 import { generateOrderCode } from '../../helpers/utils/order-code';
 import { generateQrToken } from '../../helpers/utils/qr';
@@ -57,14 +62,17 @@ export const orderService = {
     pageSize: number;
   }) {
     const { search, status, customerId, page, pageSize } = params;
+    // Tìm kiếm cả dạng có dấu lẫn không dấu
+    const searchNorm = search ? normalizeVN(search) : undefined;
     const where: Prisma.OrderWhereInput = {
       ...(status ? { status } : {}),
       ...(customerId ? { customerId } : {}),
       ...(search
         ? {
             OR: [
-              { code: { contains: search } },
-              { customer: { name: { contains: search } } },
+              { code: { contains: search, mode: 'insensitive' } },
+              { customer: { name: { contains: search, mode: 'insensitive' } } },
+              { customer: { name: { contains: searchNorm, mode: 'insensitive' } } },
               { customer: { phone: { contains: search } } },
             ],
           }
