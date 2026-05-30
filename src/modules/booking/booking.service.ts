@@ -288,4 +288,40 @@ export const bookingService = {
       });
     });
   },
+
+  async update(
+    id: string,
+    input: {
+      note?: string | null;
+      phone?: string;
+      address?: string;
+      pickupAt?: string | null;
+      deliveryAt?: string | null;
+    },
+    isAdmin = false,
+  ) {
+    const booking = await this.getById(id);
+    if (!isAdmin && (booking.status === BookingStatus.CONVERTED || booking.status === BookingStatus.CANCELLED)) {
+      throw new BadRequestError('Không thể sửa đặt lịch đã chuyển đơn hoặc đã huỷ');
+    }
+    return prisma.booking.update({
+      where: { id },
+      data: {
+        note: input.note,
+        phone: input.phone,
+        address: input.address,
+        pickupAt: input.pickupAt !== undefined ? (input.pickupAt ? new Date(input.pickupAt) : null) : undefined,
+        deliveryAt: input.deliveryAt !== undefined ? (input.deliveryAt ? new Date(input.deliveryAt) : null) : undefined,
+      },
+      include: bookingInclude,
+    });
+  },
+
+  async remove(id: string, isAdmin = false) {
+    const booking = await this.getById(id);
+    if (!isAdmin && booking.status === BookingStatus.CONVERTED) {
+      throw new BadRequestError('Không thể xoá đặt lịch đã chuyển thành đơn');
+    }
+    await prisma.booking.delete({ where: { id } });
+  },
 };

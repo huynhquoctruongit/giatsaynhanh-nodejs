@@ -58,4 +58,16 @@ export const bookingController = {
     );
     res.json({ success: true, data: toBookingResponse(booking) });
   }),
+
+  update: asyncHandler(async (req: Request, res: Response) => {
+    const isAdmin = req.user?.role === 'ADMIN';
+    const booking = await bookingService.update(req.params.id, req.body, isAdmin);
+    res.json({ success: true, data: toBookingResponse(booking) });
+  }),
+
+  remove: asyncHandler(async (req: Request, res: Response) => {
+    const isAdmin = req.user?.role === 'ADMIN';
+    await bookingService.remove(req.params.id, isAdmin);
+    res.status(HTTP_STATUS.NO_CONTENT).send();
+  }),
 };

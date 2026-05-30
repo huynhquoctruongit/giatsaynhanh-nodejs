@@ -24,5 +24,7 @@ router.post(
   validate(convertBookingSchema),
   bookingController.convert,
 );
+router.patch('/:id', bookingController.update);
+router.delete('/:id', bookingController.remove);
 
 export { router as bookingRouter };
