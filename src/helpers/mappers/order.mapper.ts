@@ -75,7 +75,8 @@ export const toPublicOrderResponse = (order: OrderWith) => ({
     })) ?? [],
 });
 
-function maskPhone(phone: string): string {
+function maskPhone(phone: string | null | undefined): string {
+  if (!phone) return '';
   if (phone.length <= 4) return phone;
   return `${phone.slice(0, 3)}****${phone.slice(-2)}`;
 }

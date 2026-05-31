@@ -41,12 +41,18 @@ export const customerService = {
   },
 
   async create(input: CreateCustomerInput) {
-    return prisma.customer.create({ data: input });
+    // Phone rỗng → null để nhiều khách không SĐT không đụng ràng buộc @unique
+    const phone = input.phone?.trim() ? input.phone.trim() : null;
+    return prisma.customer.create({ data: { ...input, phone } });
   },
 
   async update(id: string, input: UpdateCustomerInput) {
     await this.getById(id);
-    return prisma.customer.update({ where: { id }, data: input });
+    const data: Omit<UpdateCustomerInput, 'phone'> & { phone?: string | null } = { ...input };
+    if ('phone' in input) {
+      data.phone = input.phone?.trim() ? input.phone.trim() : null;
+    }
+    return prisma.customer.update({ where: { id }, data });
   },
 
   async remove(id: string) {

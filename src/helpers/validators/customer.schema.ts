@@ -3,11 +3,12 @@ import { z } from 'zod';
 export const createCustomerSchema = z.object({
   body: z.object({
     name: z.string().min(1),
+    // SĐT không bắt buộc — cho phép rỗng/bỏ trống; nếu có thì kiểm tra định dạng
     phone: z
       .string()
-      .min(8)
       .max(20)
-      .regex(/^[0-9+()\-\s]+$/, 'Invalid phone'),
+      .regex(/^[0-9+()\-\s]*$/, 'Invalid phone')
+      .optional(),
     address: z.string().optional(),
     note: z.string().optional(),
   }),
