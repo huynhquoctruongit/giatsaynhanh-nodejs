@@ -48,6 +48,36 @@ const generateBookingCode = (): string => {
 };
 
 export const bookingService = {
+  /**
+   * QR "đặt đơn tại cửa" (generic): nhận diện khách theo SĐT.
+   * Có khách → dùng lại (cập nhật địa chỉ nếu khác); chưa có → tạo mới.
+   * Trả về qrToken của khách để FE lưu localStorage + chuyển vào flow /q/{token}.
+   */
+  async identifyCustomer(input: { phone: string; name?: string; address?: string }) {
+    const phone = input.phone.trim();
+    if (!phone) throw new BadRequestError('Vui lòng nhập số điện thoại');
+    const name = input.name?.trim();
+    const address = input.address?.trim();
+
+    let customer = await prisma.customer.findFirst({
+      where: { phone },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!customer) {
+      customer = await prisma.customer.create({
+        data: { name: name || `Khách ${phone}`, phone, address: address || null },
+      });
+    } else if (address && address !== (customer.address ?? '')) {
+      customer = await prisma.customer.update({
+        where: { id: customer.id },
+        data: { address },
+      });
+    }
+
+    return { token: customer.qrToken, name: customer.name };
+  },
+
   async getQrPrefill(token: string) {
     const { customer, sourceOrder } = await resolveCustomerFromToken(token);
 

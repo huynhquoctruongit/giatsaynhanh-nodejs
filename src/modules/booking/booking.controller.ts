@@ -6,6 +6,11 @@ import { bookingService } from './booking.service';
 import type { BookingStatus } from '../../helpers/enums';
 
 export const bookingController = {
+  identify: asyncHandler(async (req: Request, res: Response) => {
+    const data = await bookingService.identifyCustomer(req.body);
+    res.json({ success: true, data });
+  }),
+
   qrPrefill: asyncHandler(async (req: Request, res: Response) => {
     const data = await bookingService.getQrPrefill(req.params.token);
     res.json({ success: true, data });

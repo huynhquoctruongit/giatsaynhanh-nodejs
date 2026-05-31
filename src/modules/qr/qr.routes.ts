@@ -3,9 +3,15 @@ import { qrController } from './qr.controller';
 import { authStaff, optionalAuth } from '../../middlewares/auth';
 import { bookingController } from '../booking/booking.controller';
 import { validate } from '../../middlewares/validate';
-import { createBookingFromQrSchema } from '../../helpers/validators/booking.schema';
+import {
+  createBookingFromQrSchema,
+  identifyCustomerSchema,
+} from '../../helpers/validators/booking.schema';
 
 const router = Router();
+
+// Public: QR "đặt đơn tại cửa" — nhận diện khách theo SĐT (phải đặt TRƯỚC /:token)
+router.post('/identify', validate(identifyCustomerSchema), bookingController.identify);
 
 // Public: customer scan QR → optional auth so staff scan also tracked
 router.get('/:token', optionalAuth, qrController.verifyPublic);

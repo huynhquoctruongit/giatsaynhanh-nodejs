@@ -25,6 +25,15 @@ export const createBookingFromQrSchema = z.object({
   }),
 });
 
+// QR "đặt đơn tại cửa" (generic, không token) — nhận diện khách theo SĐT
+export const identifyCustomerSchema = z.object({
+  body: z.object({
+    phone: z.string().min(8).max(20).regex(phoneRegex, 'Số điện thoại không hợp lệ'),
+    name: z.string().max(120).optional(),
+    address: z.string().max(255).optional(),
+  }),
+});
+
 export const listBookingSchema = z.object({
   query: z.object({
     search: z.string().optional(),
