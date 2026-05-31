@@ -206,20 +206,27 @@ export const orderService = {
     });
   },
 
-  async updateStatus(id: string, status: OrderStatus) {
+  async updateStatus(id: string, status: OrderStatus, isAdmin = false) {
     const order = await this.getById(id);
-    const allowed = VALID_TRANSITIONS[order.status as OrderStatus] ?? [];
-    if (!allowed.includes(status)) {
-      throw new BadRequestError(
-        `Cannot transition from ${order.status} to ${status}`,
-      );
+    // Admin được đổi sang bất kỳ trạng thái nào; nhân viên theo luồng cho phép
+    if (!isAdmin) {
+      const allowed = VALID_TRANSITIONS[order.status as OrderStatus] ?? [];
+      if (!allowed.includes(status)) {
+        throw new BadRequestError(
+          `Cannot transition from ${order.status} to ${status}`,
+        );
+      }
     }
 
     const updated = await prisma.order.update({
       where: { id },
       data: {
         status,
-        deliveredAt: status === OrderStatus.DELIVERED ? new Date() : order.deliveredAt,
+        // Đặt mốc giao khi chuyển sang DELIVERED; xoá khi rời khỏi DELIVERED
+        deliveredAt:
+          status === OrderStatus.DELIVERED
+            ? (order.deliveredAt ?? new Date())
+            : null,
       },
       include: orderInclude,
     });

@@ -45,7 +45,8 @@ export const orderController = {
   }),
 
   updateStatus: asyncHandler(async (req: Request, res: Response) => {
-    const order = await orderService.updateStatus(req.params.id, req.body.status);
+    const isAdmin = req.user?.role === 'ADMIN';
+    const order = await orderService.updateStatus(req.params.id, req.body.status, isAdmin);
     await scanHistoryService.log({
       orderId: order.id,
       userId: req.user?.sub,
