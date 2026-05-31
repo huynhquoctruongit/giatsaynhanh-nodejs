@@ -18,29 +18,25 @@ export const reportService = {
     const { start, end } = dayRange(date);
 
     const [
-      pendingRevenueResult,
+      revenueResult,
       deliveredRevenueResult,
-      expenseResult,
       newOrders,
       deliveredOrders,
       ordersByStatus,
     ] = await Promise.all([
-      // Doanh thu = đơn chưa giao (chưa thu tiền thực sự) tạo trong ngày
+      // Doanh thu = tổng tiền MỌI đơn tạo trong ngày, trừ đơn đã huỷ
+      // (đơn bị xoá đã không còn trong DB nên tự loại)
       prisma.order.aggregate({
         where: {
-          status: { notIn: ['DELIVERED', 'CANCELLED'] },
+          status: { not: 'CANCELLED' },
           createdAt: { gte: start, lte: end },
         },
         _sum: { totalAmount: true },
       }),
-      // Lợi nhuận = đơn đã giao trong ngày
+      // Lợi nhuận = tổng tiền đơn ĐÃ GIAO trong ngày
       prisma.order.aggregate({
         where: { status: 'DELIVERED', deliveredAt: { gte: start, lte: end } },
         _sum: { totalAmount: true },
-      }),
-      prisma.transaction.aggregate({
-        where: { type: 'EXPENSE', date: { gte: start, lte: end } },
-        _sum: { amount: true },
       }),
       prisma.order.count({ where: { createdAt: { gte: start, lte: end } } }),
       prisma.order.count({
@@ -52,10 +48,8 @@ export const reportService = {
       }),
     ]);
 
-    const revenue = Number(pendingRevenueResult._sum.totalAmount ?? 0);
-    const deliveredRevenue = Number(deliveredRevenueResult._sum.totalAmount ?? 0);
-    const expenses = Number(expenseResult._sum.amount ?? 0);
-    const profit = deliveredRevenue - expenses;
+    const revenue = Number(revenueResult._sum.totalAmount ?? 0);
+    const profit = Number(deliveredRevenueResult._sum.totalAmount ?? 0);
 
     const statusMap: Record<string, number> = {};
     for (const row of ordersByStatus) {
