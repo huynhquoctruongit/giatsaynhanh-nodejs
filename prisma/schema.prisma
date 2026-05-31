@@ -39,7 +39,7 @@ model User {
 model Customer {
   id        String   @id @default(uuid())
   name      String
-  phone     String?  @unique // SĐT không bắt buộc; Postgres cho phép nhiều NULL dưới @unique
+  phone     String?  // SĐT không bắt buộc & KHÔNG unique (cho phép trùng / để trống)
   address   String?
   note      String?
   qrToken   String   @unique @default(uuid())

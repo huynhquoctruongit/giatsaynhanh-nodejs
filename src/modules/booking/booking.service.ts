@@ -115,12 +115,11 @@ export const bookingService = {
     const trimmedAddress = input.address.trim();
 
     return prisma.$transaction(async (tx) => {
+      // Khách quét QR nhập SĐT/địa chỉ → cập nhật thẳng vào hồ sơ khách
+      // (phone không còn unique nên luôn cập nhật được, kể cả trùng số)
       const customerUpdate: Prisma.CustomerUpdateInput = {};
       if (trimmedPhone && trimmedPhone !== customer.phone) {
-        const existing = await tx.customer.findUnique({ where: { phone: trimmedPhone } });
-        if (!existing || existing.id === customerId) {
-          customerUpdate.phone = trimmedPhone;
-        }
+        customerUpdate.phone = trimmedPhone;
       }
       if (trimmedAddress && trimmedAddress !== (customer.address ?? '')) {
         customerUpdate.address = trimmedAddress;
