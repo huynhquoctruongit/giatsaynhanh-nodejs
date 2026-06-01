@@ -40,7 +40,11 @@ export const toOrderResponse = (order: OrderWith) => ({
       quantity: i.quantity,
       weight: i.weight ? Number(i.weight) : null,
       unitPrice: Number(i.unitPrice),
-      subtotal: Number(i.unitPrice) * i.quantity,
+      // Có cân → cân × đơn giá × SL; không cân → SL × đơn giá
+      subtotal:
+        i.weight && Number(i.weight) > 0
+          ? Number(i.weight) * Number(i.unitPrice) * (i.quantity || 1)
+          : Number(i.unitPrice) * i.quantity,
     })) ?? [],
   qr: {
     // Prefer customer-level permanent QR; fall back to order-level for legacy data.

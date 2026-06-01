@@ -278,7 +278,12 @@ export const bookingService = {
           unitPrice: Number(i.unitPrice),
         }));
 
-    const total = items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+    // Tính tổng theo cân nặng nếu có (giống đơn thường): có cân → cân × đơn giá × SL
+    const total = items.reduce((sum, i) => {
+      const w = i.weight ? Number(i.weight) : 0;
+      const line = w > 0 ? w * i.unitPrice * (i.quantity || 1) : i.quantity * i.unitPrice;
+      return sum + line;
+    }, 0);
     const discountAmount = input.discountAmount ?? 0;
 
     return prisma.$transaction(async (tx) => {
