@@ -13,6 +13,7 @@ const toResponse = (p: {
   wholesaleEnabled?: boolean;
   wholesaleTiers?: unknown;
   isActive: boolean;
+  hiddenFromBooking?: boolean;
   note: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -23,6 +24,7 @@ const toResponse = (p: {
   costPrice: p.costPrice != null ? Number(p.costPrice) : null,
   wholesaleEnabled: p.wholesaleEnabled ?? false,
   wholesaleTiers: (p.wholesaleTiers as unknown[] | null) ?? null,
+  hiddenFromBooking: p.hiddenFromBooking ?? false,
 });
 
 export const productController = {

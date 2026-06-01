@@ -92,7 +92,8 @@ export const bookingService = {
         take: 2,
       }),
       prisma.product.findMany({
-        where: { isActive: true },
+        // Ẩn dịch vụ nội bộ (Phụ thu...) khỏi web đặt lịch của khách
+        where: { isActive: true, hiddenFromBooking: false },
         orderBy: { name: 'asc' },
         take: 100,
       }),

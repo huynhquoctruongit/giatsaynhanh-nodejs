@@ -15,6 +15,7 @@ export const createProductSchema = z.object({
     wholesaleEnabled: z.coerce.boolean().optional().default(false),
     wholesaleTiers: z.array(wholesaleTierSchema).optional().nullable(),
     isActive: z.coerce.boolean().optional().default(true),
+    hiddenFromBooking: z.coerce.boolean().optional().default(false),
     note: z.string().optional(),
   }),
 });

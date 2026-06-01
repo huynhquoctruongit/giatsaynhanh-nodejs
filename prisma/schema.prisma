@@ -63,6 +63,7 @@ model Product {
   wholesaleEnabled Boolean  @default(false)
   wholesaleTiers   Json?    // WholesaleTier[] = [{ minQty: number; price: number }]
   isActive         Boolean  @default(true)
+  hiddenFromBooking Boolean @default(false) // ẩn khỏi web đặt lịch (dịch vụ nội bộ: Phụ thu...)
   note             String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -337,7 +338,8 @@ model ShopSettings {
   loyaltyPointsRate    Decimal? @db.Decimal(8, 4)
   deliveryEnabled      Boolean  @default(false)
   deliveryFee          Decimal? @db.Decimal(10, 2)
-  bookingShippingFee   Decimal? @db.Decimal(10, 2) // cộng trên hoá đơn đơn từ booking QR
+  bookingShippingFee   Decimal? @db.Decimal(10, 2) // phí ship cộng cho đơn booking khi dưới ngưỡng freeship
+  freeShipThreshold    Decimal? @db.Decimal(12, 2) // tổng đơn >= ngưỡng này thì FREESHIP (0/null = luôn tính ship)
   allowNoShiftOrder    Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

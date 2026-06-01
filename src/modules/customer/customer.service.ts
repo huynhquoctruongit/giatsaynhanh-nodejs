@@ -9,14 +9,16 @@ import type {
 export const customerService = {
   async list(params: { search?: string; page: number; pageSize: number }) {
     const { search, page, pageSize } = params;
-    const where: Prisma.CustomerWhereInput = search
-      ? {
-          OR: [
-            { name: { contains: search } },
-            { phone: { contains: search } },
-          ],
-        }
-      : {};
+    let where: Prisma.CustomerWhereInput = {};
+    if (search) {
+      // Tìm không dấu: unaccent(name) khớp cả khi gõ có dấu lẫn không dấu
+      const rows = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Customer"
+        WHERE unaccent(LOWER(name)) LIKE unaccent(LOWER(${`%${search}%`}))
+           OR phone LIKE ${`%${search}%`}
+      `;
+      where = { id: { in: rows.map((r) => r.id) } };
+    }
 
     const [total, items] = await Promise.all([
       prisma.customer.count({ where }),

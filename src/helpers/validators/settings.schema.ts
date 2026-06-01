@@ -27,6 +27,7 @@ export const updateSettingsSchema = z.object({
     deliveryEnabled: z.boolean().optional(),
     deliveryFee: z.coerce.number().nonnegative().nullable().optional(),
     bookingShippingFee: z.coerce.number().nonnegative().nullable().optional(),
+    freeShipThreshold: z.coerce.number().nonnegative().nullable().optional(),
     allowNoShiftOrder: z.boolean().optional(),
   }),
 });
