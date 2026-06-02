@@ -14,6 +14,7 @@ const toResponse = (p: {
   wholesaleTiers?: unknown;
   isActive: boolean;
   hiddenFromBooking?: boolean;
+  sortOrder?: number;
   note: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -60,5 +61,11 @@ export const productController = {
   remove: asyncHandler(async (req: Request, res: Response) => {
     await productService.remove(req.params.id);
     res.status(HTTP_STATUS.NO_CONTENT).send();
+  }),
+
+  reorder: asyncHandler(async (req: Request, res: Response) => {
+    const { ids } = req.body as { ids: string[] };
+    const data = await productService.reorder(ids);
+    res.json({ success: true, data });
   }),
 };

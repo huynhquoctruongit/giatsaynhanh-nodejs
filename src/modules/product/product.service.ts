@@ -30,7 +30,7 @@ export const productService = {
       prisma.product.count({ where }),
       prisma.product.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -47,8 +47,11 @@ export const productService = {
 
   async create(input: CreateProductInput) {
     const { wholesaleTiers, ...rest } = input;
+    // Dịch vụ mới xếp xuống cuối danh sách ưu tiên
+    const max = await prisma.product.aggregate({ _max: { sortOrder: true } });
+    const sortOrder = (max._max.sortOrder ?? -1) + 1;
     return prisma.product.create({
-      data: { ...rest, wholesaleTiers: toJsonField(wholesaleTiers) },
+      data: { ...rest, sortOrder, wholesaleTiers: toJsonField(wholesaleTiers) },
     });
   },
 
@@ -67,5 +70,15 @@ export const productService = {
       where: { id },
       data: { isActive: false },
     });
+  },
+
+  /** Cập nhật độ ưu tiên hiển thị: index trong mảng id = sortOrder (0 lên đầu). */
+  async reorder(ids: string[]) {
+    await prisma.$transaction(
+      ids.map((id, index) =>
+        prisma.product.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    );
+    return { success: true };
   },
 };

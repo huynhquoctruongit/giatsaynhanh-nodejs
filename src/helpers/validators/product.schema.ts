@@ -25,6 +25,13 @@ export const updateProductSchema = z.object({
   body: createProductSchema.shape.body.partial(),
 });
 
+export const reorderProductSchema = z.object({
+  body: z.object({
+    // Mảng id theo thứ tự ưu tiên mong muốn (index 0 = lên đầu)
+    ids: z.array(z.string().uuid()).min(1),
+  }),
+});
+
 export const listProductSchema = z.object({
   query: z.object({
     search: z.string().optional(),

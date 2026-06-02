@@ -64,6 +64,7 @@ model Product {
   wholesaleTiers   Json?    // WholesaleTier[] = [{ minQty: number; price: number }]
   isActive         Boolean  @default(true)
   hiddenFromBooking Boolean @default(false) // ẩn khỏi web đặt lịch (dịch vụ nội bộ: Phụ thu...)
+  sortOrder        Int      @default(0) // độ ưu tiên hiển thị (nhỏ = lên trên); kéo-thả ở màn dịch vụ
   note             String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -71,6 +72,7 @@ model Product {
   orderItems OrderItem[]
 
   @@index([isActive])
+  @@index([sortOrder])
 }
 
 model Order {
