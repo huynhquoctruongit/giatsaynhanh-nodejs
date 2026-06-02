@@ -50,6 +50,11 @@ export const listOrderSchema = z.object({
     search: z.string().optional(),
     status: z.nativeEnum(OrderStatus).optional(),
     customerId: z.string().uuid().optional(),
+    // Lọc đơn đặt (giao tận nhà): ?fromBooking=true
+    fromBooking: z
+      .union([z.literal('true'), z.literal('false')])
+      .optional()
+      .transform((v) => (v === undefined ? undefined : v === 'true')),
     page: z.coerce.number().int().min(1).default(1),
     // max 1000 để màn "Rà soát đơn" tải hết đơn còn trên kệ trong 1 lần
     pageSize: z.coerce.number().int().min(1).max(1000).default(20),

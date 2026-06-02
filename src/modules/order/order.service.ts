@@ -45,12 +45,14 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 export const orderService = {
   /** Đếm số đơn theo từng trạng thái (dùng cho chips ở màn danh sách) */
   async statusCounts(): Promise<Record<string, number>> {
-    const groups = await prisma.order.groupBy({
-      by: ['status'],
-      _count: { id: true },
-    });
+    const [groups, bookingCount] = await Promise.all([
+      prisma.order.groupBy({ by: ['status'], _count: { id: true } }),
+      prisma.order.count({ where: { bookingFromConvert: { isNot: null } } }),
+    ]);
     const counts: Record<string, number> = {};
     for (const g of groups) counts[g.status] = g._count.id;
+    // Đơn đặt (giao tận nhà) — key riêng; FE KHÔNG cộng vào "Tất cả"
+    counts.BOOKING = bookingCount;
     return counts;
   },
 
@@ -58,10 +60,11 @@ export const orderService = {
     search?: string;
     status?: OrderStatus;
     customerId?: string;
+    fromBooking?: boolean;
     page: number;
     pageSize: number;
   }) {
-    const { search, status, customerId, page, pageSize } = params;
+    const { search, status, customerId, fromBooking, page, pageSize } = params;
 
     // Tìm customer IDs khớp với search (có dấu hoặc không dấu) dùng unaccent
     let matchedCustomerIds: string[] = [];
@@ -77,6 +80,7 @@ export const orderService = {
     const where: Prisma.OrderWhereInput = {
       ...(status ? { status } : {}),
       ...(customerId ? { customerId } : {}),
+      ...(fromBooking ? { bookingFromConvert: { isNot: null } } : {}),
       ...(search
         ? {
             OR: [
