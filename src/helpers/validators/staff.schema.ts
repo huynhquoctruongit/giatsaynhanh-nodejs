@@ -1,26 +1,23 @@
 import { z } from 'zod';
-import {
-  ALL_ORDER_VIEW_TIME_LIMITS,
-  ALL_PERMISSION_KEYS,
-} from '../enums/permissions';
 
-const permissionMapSchema = z
-  .record(z.boolean())
-  .superRefine((value, ctx) => {
-    for (const key of Object.keys(value)) {
-      if (!ALL_PERMISSION_KEYS.includes(key as (typeof ALL_PERMISSION_KEYS)[number])) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Unknown permission key: ${key}`,
-          path: [key],
-        });
-      }
-    }
-  });
+/**
+ * Quyền nhân viên — FE (app + web) gửi MẢNG các key đang bật, vd:
+ *   ['ORDER_CREATE', 'ORDER_UPDATE']
+ * Chấp nhận thêm dạng object {KEY: true} để tương thích về sau.
+ * Backend chuẩn hoá về map {KEY: true} khi lưu (xem normalizePermissionInput).
+ */
+const permissionsInputSchema = z.union([
+  z.array(z.string()),
+  z.record(z.boolean()),
+]);
 
-const orderViewTimeLimitSchema = z.enum(
-  ALL_ORDER_VIEW_TIME_LIMITS as [string, ...string[]],
-);
+/**
+ * Giới hạn thời gian xem đơn: số phút (number) hoặc chuỗi; trống/null = không giới hạn.
+ * (FE đang nhập theo PHÚT nên không ràng buộc enum ngày/tuần/tháng nữa.)
+ */
+const orderViewTimeLimitSchema = z
+  .union([z.number().int().nonnegative(), z.string(), z.null()])
+  .optional();
 
 export const listStaffSchema = z.object({
   query: z.object({
@@ -42,8 +39,8 @@ export const createStaffSchema = z.object({
     name: z.string().min(1),
     phone: z.string().optional(),
     role: z.enum(['ADMIN', 'STAFF']).default('STAFF'),
-    permissions: permissionMapSchema.optional(),
-    orderViewTimeLimit: orderViewTimeLimitSchema.optional(),
+    permissions: permissionsInputSchema.optional(),
+    orderViewTimeLimit: orderViewTimeLimitSchema,
   }),
 });
 
@@ -58,8 +55,8 @@ export const updateStaffSchema = z.object({
 
 export const updateStaffPermissionsSchema = z.object({
   body: z.object({
-    permissions: permissionMapSchema,
-    orderViewTimeLimit: orderViewTimeLimitSchema.optional(),
+    permissions: permissionsInputSchema,
+    orderViewTimeLimit: orderViewTimeLimitSchema,
   }),
 });
 

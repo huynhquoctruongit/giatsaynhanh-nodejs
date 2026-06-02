@@ -14,6 +14,24 @@ export const parsePermissionMap = (raw: unknown): PermissionMap => {
   return out;
 };
 
+/**
+ * Chuẩn hoá input quyền từ FE (mảng key đang bật HOẶC object {key:true})
+ * về map {key: true} để lưu DB & cho userHasPermission đọc.
+ */
+export const normalizePermissionInput = (
+  raw: string[] | Record<string, unknown> | undefined | null,
+): PermissionMap => {
+  if (!raw) return {};
+  if (Array.isArray(raw)) {
+    const out: PermissionMap = {};
+    for (const key of raw) {
+      if (typeof key === 'string' && key) out[key as Permission] = true;
+    }
+    return out;
+  }
+  return parsePermissionMap(raw);
+};
+
 export const userHasPermission = (
   role: string | undefined,
   permissions: PermissionMap | undefined,

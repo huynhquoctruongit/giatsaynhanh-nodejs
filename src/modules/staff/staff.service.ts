@@ -7,6 +7,7 @@ import {
   BadRequestError,
 } from '../../helpers/utils/errors';
 import { toPublicUser } from '../../helpers/mappers/user.mapper';
+import { normalizePermissionInput } from '../../helpers/utils/permissions';
 import type {
   CreateStaffInput,
   ListStaffQuery,
@@ -68,8 +69,13 @@ export const staffService = {
         name: input.name,
         phone: input.phone ?? null,
         role: input.role,
-        permissions: (input.permissions ?? {}) as Prisma.InputJsonValue,
-        orderViewTimeLimit: input.orderViewTimeLimit ?? 'unlimited',
+        permissions: normalizePermissionInput(
+          input.permissions,
+        ) as Prisma.InputJsonValue,
+        orderViewTimeLimit:
+          input.orderViewTimeLimit == null || input.orderViewTimeLimit === ''
+            ? 'unlimited'
+            : String(input.orderViewTimeLimit),
       },
     });
     return toPublicUser(created);
@@ -113,10 +119,13 @@ export const staffService = {
     const updated = await prisma.user.update({
       where: { id },
       data: {
-        permissions: input.permissions as Prisma.InputJsonValue,
-        ...(input.orderViewTimeLimit
-          ? { orderViewTimeLimit: input.orderViewTimeLimit }
-          : {}),
+        permissions: normalizePermissionInput(
+          input.permissions,
+        ) as Prisma.InputJsonValue,
+        orderViewTimeLimit:
+          input.orderViewTimeLimit == null || input.orderViewTimeLimit === ''
+            ? 'unlimited'
+            : String(input.orderViewTimeLimit),
       },
     });
     return toPublicUser(updated);
