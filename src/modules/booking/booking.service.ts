@@ -81,7 +81,7 @@ export const bookingService = {
   async getQrPrefill(token: string) {
     const { customer, sourceOrder } = await resolveCustomerFromToken(token);
 
-    const [activeOrders, services] = await Promise.all([
+    const [activeOrders, services, hiddenProducts] = await Promise.all([
       prisma.order.findMany({
         where: {
           customerId: customer.id,
@@ -94,10 +94,16 @@ export const bookingService = {
       prisma.product.findMany({
         // Ẩn dịch vụ nội bộ (Phụ thu...) khỏi web đặt lịch của khách
         where: { isActive: true, hiddenFromBooking: false },
-        orderBy: { name: 'asc' },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
         take: 100,
       }),
+      // Dịch vụ bị ẩn — để lọc cả khỏi danh sách "đặt lại đơn cũ" (items điền sẵn)
+      prisma.product.findMany({
+        where: { hiddenFromBooking: true },
+        select: { id: true },
+      }),
     ]);
+    const hiddenProductIds = new Set(hiddenProducts.map((p) => p.id));
 
     return {
       sourceOrder: sourceOrder
@@ -109,13 +115,16 @@ export const bookingService = {
         phone: customer.phone,
         address: customer.address,
       },
-      items: (sourceOrder?.items ?? []).map((i) => ({
-        productId: i.productId,
-        name: i.name,
-        quantity: i.quantity,
-        weight: i.weight ? Number(i.weight) : null,
-        unitPrice: Number(i.unitPrice),
-      })),
+      items: (sourceOrder?.items ?? [])
+        // Bỏ dịch vụ đã ẩn khỏi web khỏi phần "đặt lại đơn cũ"
+        .filter((i) => !i.productId || !hiddenProductIds.has(i.productId))
+        .map((i) => ({
+          productId: i.productId,
+          name: i.name,
+          quantity: i.quantity,
+          weight: i.weight ? Number(i.weight) : null,
+          unitPrice: Number(i.unitPrice),
+        })),
       activeOrders: activeOrders.map((o) => ({
         id: o.id,
         code: o.code,
