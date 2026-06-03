@@ -61,10 +61,11 @@ export const orderService = {
     status?: OrderStatus;
     customerId?: string;
     fromBooking?: boolean;
+    debt?: boolean;
     page: number;
     pageSize: number;
   }) {
-    const { search, status, customerId, fromBooking, page, pageSize } = params;
+    const { search, status, customerId, fromBooking, debt, page, pageSize } = params;
 
     // Tìm customer IDs khớp với search (có dấu hoặc không dấu) dùng unaccent
     let matchedCustomerIds: string[] = [];
@@ -81,6 +82,8 @@ export const orderService = {
       ...(status ? { status } : {}),
       ...(customerId ? { customerId } : {}),
       ...(fromBooking ? { bookingFromConvert: { isNot: null } } : {}),
+      // Đơn nợ: đã giao nhưng chưa thu tiền (paidAt null)
+      ...(debt ? { status: OrderStatus.DELIVERED, paidAt: null } : {}),
       ...(search
         ? {
             OR: [
@@ -222,6 +225,11 @@ export const orderService = {
       }
     }
 
+    const becomingDelivered =
+      status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED;
+    const leavingDelivered =
+      status !== OrderStatus.DELIVERED && order.status === OrderStatus.DELIVERED;
+
     const updated = await prisma.order.update({
       where: { id },
       data: {
@@ -231,6 +239,10 @@ export const orderService = {
           status === OrderStatus.DELIVERED
             ? (order.deliveredAt ?? new Date())
             : null,
+        // Giao = mặc định ĐÃ THU TIỀN (vào lợi nhuận ngay). Nếu là đơn nợ,
+        // nhân viên bấm "Đánh dấu nợ" sau để xoá paidAt. Rời DELIVERED → xoá paidAt.
+        ...(becomingDelivered ? { paidAt: new Date() } : {}),
+        ...(leavingDelivered ? { paidAt: null } : {}),
       },
       include: orderInclude,
     });
@@ -248,6 +260,20 @@ export const orderService = {
     }
 
     return updated;
+  },
+
+  /**
+   * Đánh dấu thu tiền cho đơn.
+   *  - paid=false → ĐƠN NỢ: paidAt=null (treo, KHÔNG vào lợi nhuận)
+   *  - paid=true  → ĐÃ THANH TOÁN: paidAt=now (vào lợi nhuận tại ngày thu tiền)
+   */
+  async setPayment(id: string, paid: boolean) {
+    await this.getById(id);
+    return prisma.order.update({
+      where: { id },
+      data: { paidAt: paid ? new Date() : null },
+      include: orderInclude,
+    });
   },
 
   async assign(id: string, assignedToId: string) {

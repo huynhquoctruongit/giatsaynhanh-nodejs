@@ -33,9 +33,9 @@ export const reportService = {
         },
         _sum: { totalAmount: true },
       }),
-      // Lợi nhuận = tổng tiền đơn ĐÃ GIAO trong ngày
+      // Lợi nhuận = tổng tiền đơn THU TIỀN trong ngày (đơn nợ chưa thu → chưa tính)
       prisma.order.aggregate({
-        where: { status: 'DELIVERED', deliveredAt: { gte: start, lte: end } },
+        where: { paidAt: { gte: start, lte: end } },
         _sum: { totalAmount: true },
       }),
       prisma.order.count({ where: { createdAt: { gte: start, lte: end } } }),
@@ -92,7 +92,7 @@ export const reportService = {
     const [revenueResult, expenseResult, incomeByCategory, expenseByCategory, dailyOrders] =
       await Promise.all([
         prisma.order.aggregate({
-          where: { status: 'DELIVERED', deliveredAt: filter },
+          where: { paidAt: { not: null, ...filter } },
           _sum: { totalAmount: true },
         }),
         prisma.transaction.aggregate({
@@ -112,8 +112,8 @@ export const reportService = {
           orderBy: { _sum: { amount: 'desc' } },
         }),
         prisma.order.findMany({
-          where: { status: 'DELIVERED', deliveredAt: filter },
-          select: { deliveredAt: true, totalAmount: true },
+          where: { paidAt: { not: null, ...filter } },
+          select: { paidAt: true, totalAmount: true },
         }),
       ]);
 
@@ -124,8 +124,8 @@ export const reportService = {
     // Group by date
     const dailyMap: Record<string, number> = {};
     for (const order of dailyOrders) {
-      if (!order.deliveredAt) continue;
-      const key = order.deliveredAt.toISOString().slice(0, 10);
+      if (!order.paidAt) continue;
+      const key = order.paidAt.toISOString().slice(0, 10);
       dailyMap[key] = (dailyMap[key] ?? 0) + Number(order.totalAmount);
     }
     const dailyRevenue = Object.entries(dailyMap)
@@ -155,7 +155,7 @@ export const reportService = {
     const [totalOrders, revenueResult, ordersByStatus, topProductsRaw] = await Promise.all([
       prisma.order.count({ where: { createdAt: filter } }),
       prisma.order.aggregate({
-        where: { status: 'DELIVERED', deliveredAt: filter },
+        where: { paidAt: { not: null, ...filter } },
         _sum: { totalAmount: true },
       }),
       prisma.order.groupBy({

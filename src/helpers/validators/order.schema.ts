@@ -45,6 +45,14 @@ export const updateOrderStatusSchema = z.object({
   }),
 });
 
+export const updateOrderPaymentSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    // paid=false → đánh dấu NỢ (treo); paid=true → đã thanh toán
+    paid: z.boolean(),
+  }),
+});
+
 export const listOrderSchema = z.object({
   query: z.object({
     search: z.string().optional(),
@@ -52,6 +60,11 @@ export const listOrderSchema = z.object({
     customerId: z.string().uuid().optional(),
     // Lọc đơn đặt (giao tận nhà): ?fromBooking=true
     fromBooking: z
+      .union([z.literal('true'), z.literal('false')])
+      .optional()
+      .transform((v) => (v === undefined ? undefined : v === 'true')),
+    // Lọc đơn NỢ (đã giao, chưa thu tiền): ?debt=true
+    debt: z
       .union([z.literal('true'), z.literal('false')])
       .optional()
       .transform((v) => (v === undefined ? undefined : v === 'true')),

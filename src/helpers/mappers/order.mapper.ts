@@ -19,6 +19,9 @@ export const toOrderResponse = (order: OrderWith) => ({
   note: order.note,
   pickupAt: order.pickupAt,
   deliveredAt: order.deliveredAt,
+  paidAt: order.paidAt,
+  // Đơn nợ = đã giao nhưng CHƯA thu tiền (treo, chưa vào lợi nhuận)
+  isDebt: order.status === 'DELIVERED' && order.paidAt == null,
   createdAt: order.createdAt,
   updatedAt: order.updatedAt,
   customer: order.customer

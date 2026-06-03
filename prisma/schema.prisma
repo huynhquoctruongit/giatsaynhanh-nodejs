@@ -85,6 +85,9 @@ model Order {
   note           String?
   pickupAt       DateTime?
   deliveredAt    DateTime?
+  // Mốc thu tiền. Giao thường: = lúc giao. Đơn NỢ: null (treo, chưa vào lợi nhuận).
+  // Lợi nhuận tính theo paidAt → tiền vào đúng ngày khách thanh toán.
+  paidAt         DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -106,6 +109,7 @@ model Order {
   @@index([status])
   @@index([customerId])
   @@index([createdAt])
+  @@index([paidAt])
 }
 
 model Booking {

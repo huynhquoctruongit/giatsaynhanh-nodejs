@@ -6,6 +6,7 @@ import {
   assignOrderSchema,
   createOrderSchema,
   listOrderSchema,
+  updateOrderPaymentSchema,
   updateOrderSchema,
   updateOrderStatusSchema,
 } from '../../helpers/validators/order.schema';
@@ -23,6 +24,11 @@ router.patch(
   '/:id/status',
   validate(updateOrderStatusSchema),
   orderController.updateStatus,
+);
+router.patch(
+  '/:id/payment',
+  validate(updateOrderPaymentSchema),
+  orderController.setPayment,
 );
 router.delete('/:id', orderController.remove);
 router.patch('/:id/assign', validate(assignOrderSchema), orderController.assign);

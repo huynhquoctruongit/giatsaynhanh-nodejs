@@ -19,6 +19,7 @@ export const orderController = {
       status?: OrderStatus;
       customerId?: string;
       fromBooking?: boolean;
+      debt?: boolean;
       page: number;
       pageSize: number;
     };
@@ -63,6 +64,11 @@ export const orderController = {
     const isAdmin = req.user?.role === 'ADMIN';
     await orderService.remove(req.params.id, isAdmin);
     res.status(HTTP_STATUS.NO_CONTENT).send();
+  }),
+
+  setPayment: asyncHandler(async (req: Request, res: Response) => {
+    const order = await orderService.setPayment(req.params.id, req.body.paid);
+    res.json({ success: true, data: toOrderResponse(order) });
   }),
 
   qrDataUrl: asyncHandler(async (req: Request, res: Response) => {
