@@ -4,6 +4,7 @@ import { BookingStatus } from '../../helpers/enums';
 import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
 import { generateOrderCode } from '../../helpers/utils/order-code';
 import { generateQrToken } from '../../helpers/utils/qr';
+import { sendPush, getActiveTokens } from '../../lib/firebase';
 import type {
   ConvertBookingInput,
   CreateBookingFromQrInput,
@@ -154,7 +155,7 @@ export const bookingService = {
     const trimmedPhone = input.phone.trim();
     const trimmedAddress = input.address.trim();
 
-    return prisma.$transaction(async (tx) => {
+    const booking = await prisma.$transaction(async (tx) => {
       // Khách quét QR nhập SĐT/địa chỉ → cập nhật thẳng vào hồ sơ khách
       // (phone không còn unique nên luôn cập nhật được, kể cả trùng số)
       const customerUpdate: Prisma.CustomerUpdateInput = {};
@@ -192,6 +193,18 @@ export const bookingService = {
         include: bookingInclude,
       });
     });
+
+    // Push: khách vừa đặt lịch giao nhận tận nhà
+    getActiveTokens(prisma).then((tokens) =>
+      sendPush(
+        tokens,
+        '📅 Đặt lịch mới',
+        `${booking.code} · ${booking.customer?.name ?? 'Khách'}${booking.address ? ' · ' + booking.address : ''}`,
+        { bookingId: booking.id, type: 'NEW_BOOKING' },
+      ),
+    );
+
+    return booking;
   },
 
   async list(params: {

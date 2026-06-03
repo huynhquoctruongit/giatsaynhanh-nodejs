@@ -269,11 +269,23 @@ export const orderService = {
    */
   async setPayment(id: string, paid: boolean) {
     await this.getById(id);
-    return prisma.order.update({
+    const order = await prisma.order.update({
       where: { id },
       data: { paidAt: paid ? new Date() : null },
       include: orderInclude,
     });
+    // Push khi đánh dấu ĐƠN NỢ (chưa thu tiền)
+    if (!paid) {
+      getActiveTokens(prisma).then((tokens) =>
+        sendPush(
+          tokens,
+          '💰 Đơn nợ',
+          `${order.code} · ${order.customer?.name ?? 'Khách'} chưa thanh toán ${Number(order.totalAmount).toLocaleString('vi-VN')}đ`,
+          { orderId: order.id, type: 'ORDER_DEBT' },
+        ),
+      );
+    }
+    return order;
   },
 
   async assign(id: string, assignedToId: string) {
