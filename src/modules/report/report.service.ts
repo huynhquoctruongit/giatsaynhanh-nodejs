@@ -1,10 +1,13 @@
 import { prisma } from '../../config/prisma';
 
+// Server chạy UTC (Render) → phải tính mốc ngày theo giờ VN (UTC+7), nếu không
+// các số tổng quan sẽ reset lúc 7h sáng VN (nửa đêm UTC) thay vì nửa đêm VN.
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 const dayRange = (date: Date) => {
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
+  const shifted = new Date(date.getTime() + VN_OFFSET_MS);
+  shifted.setUTCHours(0, 0, 0, 0); // đầu ngày theo giờ VN
+  const start = new Date(shifted.getTime() - VN_OFFSET_MS);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
   return { start, end };
 };
 
