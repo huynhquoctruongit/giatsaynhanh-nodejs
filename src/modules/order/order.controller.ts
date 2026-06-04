@@ -8,8 +8,16 @@ import { scanHistoryService } from '../qr/scan-history.service';
 import type { OrderStatus } from '../../helpers/enums';
 
 export const orderController = {
-  statusCounts: asyncHandler(async (_req: Request, res: Response) => {
-    const data = await orderService.statusCounts();
+  statusCounts: asyncHandler(async (req: Request, res: Response) => {
+    const parse = (v: unknown) => {
+      if (typeof v !== 'string') return undefined;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+    const data = await orderService.statusCounts({
+      dateFrom: parse(req.query.dateFrom),
+      dateTo: parse(req.query.dateTo),
+    });
     res.json({ success: true, data });
   }),
 

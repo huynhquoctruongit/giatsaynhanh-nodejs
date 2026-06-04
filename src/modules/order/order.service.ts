@@ -44,16 +44,29 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export const orderService = {
-  /** Đếm số đơn theo từng trạng thái (dùng cho chips ở màn danh sách) */
-  async statusCounts(): Promise<Record<string, number>> {
-    const [groups, bookingCount] = await Promise.all([
-      prisma.order.groupBy({ by: ['status'], _count: { id: true } }),
-      prisma.order.count({ where: { bookingFromConvert: { isNot: null } } }),
+  /** Đếm số đơn theo từng trạng thái (chips màn danh sách). Lọc theo ngày nếu có. */
+  async statusCounts(params?: { dateFrom?: Date; dateTo?: Date }): Promise<Record<string, number>> {
+    const { dateFrom, dateTo } = params ?? {};
+    const range =
+      dateFrom || dateTo
+        ? { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) }
+        : undefined;
+    // Các trạng thái đếm theo NGÀY TẠO; riêng DELIVERED theo NGÀY GIAO (khớp tab "Đã giao")
+    const created = range ? { createdAt: range } : {};
+    const delivered = range ? { deliveredAt: range } : {};
+
+    const [groups, bookingCount, deliveredCount, allCount] = await Promise.all([
+      prisma.order.groupBy({ by: ['status'], where: created, _count: { id: true } }),
+      prisma.order.count({ where: { bookingFromConvert: { isNot: null }, ...created } }),
+      prisma.order.count({ where: { status: OrderStatus.DELIVERED, ...delivered } }),
+      prisma.order.count({ where: created }),
     ]);
     const counts: Record<string, number> = {};
     for (const g of groups) counts[g.status] = g._count.id;
+    counts[OrderStatus.DELIVERED] = deliveredCount; // đếm theo ngày giao
     // Đơn đặt (giao tận nhà) — key riêng; FE KHÔNG cộng vào "Tất cả"
     counts.BOOKING = bookingCount;
+    counts.ALL = allCount; // "Tất cả" theo ngày tạo (FE dùng key này thay vì cộng dồn)
     return counts;
   },
 
