@@ -87,11 +87,12 @@ export const bookingService = {
       prisma.order.findMany({
         where: {
           customerId: customer.id,
-          status: { notIn: ['DELIVERED', 'CANCELLED'] },
+          // Hiện cả đơn ĐÃ GIAO (chỉ ẩn đơn đã huỷ)
+          status: { not: 'CANCELLED' },
         },
         include: { items: true },
         orderBy: { createdAt: 'desc' },
-        take: 2,
+        take: 5,
       }),
       prisma.product.findMany({
         // Ẩn dịch vụ nội bộ (Phụ thu...) khỏi web đặt lịch của khách
