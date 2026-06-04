@@ -200,7 +200,7 @@ export const bookingService = {
     getActiveTokens(prisma).then((tokens) =>
       sendPush(
         tokens,
-        'Đặt giao nhận',
+        '🛵 Đặt giao nhận',
         `${booking.customer?.name ?? 'Khách'} - ${booking.phone || booking.customer?.phone || '—'} - ${booking.pickupAt ? fmtVNTime(booking.pickupAt) : 'chưa hẹn giờ'}`,
         { bookingId: booking.id, type: 'NEW_BOOKING' },
       ),

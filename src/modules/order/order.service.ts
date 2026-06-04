@@ -39,7 +39,8 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   RECEIVED: [OrderStatus.READY, OrderStatus.CANCELLED],
   WASHING: [OrderStatus.READY, OrderStatus.CANCELLED],
   READY: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
-  DELIVERED: [],
+  // Cho phép quay về READY khi lỡ bấm "Đã giao" (trừ lại lợi nhuận qua leavingDelivered)
+  DELIVERED: [OrderStatus.READY],
   CANCELLED: [],
 };
 
@@ -200,7 +201,7 @@ export const orderService = {
     getActiveTokens(prisma).then((tokens) =>
       sendPush(
         tokens,
-        'Đơn mới',
+        '🧺 Đơn mới',
         `${order.customer?.name ?? 'Khách'} - ${fmtMoney(order.totalAmount)} - ${fmtVNTime(new Date())}`,
         { orderId: order.id, type: 'NEW_ORDER' },
       ),
@@ -286,7 +287,7 @@ export const orderService = {
       getActiveTokens(prisma).then((tokens) =>
         sendPush(
           tokens,
-          'Đã giao',
+          '✅ Đã giao',
           `${updated.customer?.name ?? 'Khách'} - ${fmtMoney(updated.totalAmount)} - ${fmtVNTime(new Date())}`,
           { orderId: updated.id, type: 'ORDER_DELIVERED' },
         ),
@@ -313,7 +314,7 @@ export const orderService = {
       getActiveTokens(prisma).then((tokens) =>
         sendPush(
           tokens,
-          'Đơn nợ',
+          '💰 Đơn nợ',
           `${order.customer?.name ?? 'Khách'} - ${fmtMoney(order.totalAmount)} - ${fmtVNTime(new Date())}`,
           { orderId: order.id, type: 'ORDER_DEBT' },
         ),
