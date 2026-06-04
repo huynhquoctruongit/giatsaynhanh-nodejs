@@ -8,6 +8,11 @@ export const settingsController = {
     res.json({ success: true, data });
   }),
 
+  getPublic: asyncHandler(async (_req: Request, res: Response) => {
+    const data = await settingsService.getPublic();
+    res.json({ success: true, data });
+  }),
+
   update: asyncHandler(async (req: Request, res: Response) => {
     const data = await settingsService.update(req.body);
     res.json({ success: true, data });

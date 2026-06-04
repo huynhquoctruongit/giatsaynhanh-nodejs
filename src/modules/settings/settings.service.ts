@@ -22,6 +22,18 @@ export const settingsService = {
     return prisma.shopSettings.create({ data: DEFAULT_SETTINGS });
   },
 
+  /** Thông tin tiệm công khai (landing/booking) — chỉ field an toàn, KHÔNG cần đăng nhập */
+  async getPublic() {
+    const s = await this.get();
+    return {
+      shopName: s.shopName,
+      phone: s.phone,
+      address: s.address,
+      website: s.website,
+      openingHours: s.openingHours,
+    };
+  },
+
   async update(input: UpdateSettingsInput) {
     const existing = await this.get();
     return prisma.shopSettings.update({
