@@ -63,10 +63,23 @@ export const orderService = {
     customerId?: string;
     fromBooking?: boolean;
     debt?: boolean;
+    dateFrom?: Date;
+    dateTo?: Date;
     page: number;
     pageSize: number;
   }) {
-    const { search, status, customerId, fromBooking, debt, page, pageSize } = params;
+    const { search, status, customerId, fromBooking, debt, dateFrom, dateTo, page, pageSize } = params;
+
+    // Tab "Đã giao" lọc & sắp theo NGÀY GIAO (deliveredAt); các tab khác theo NGÀY TẠO.
+    const byDelivered = status === OrderStatus.DELIVERED;
+    // Lọc theo ngày — BỎ QUA khi đang tìm kiếm (để tìm xuyên suốt mọi ngày).
+    const dateRange =
+      !search && (dateFrom || dateTo)
+        ? {
+            ...(dateFrom ? { gte: dateFrom } : {}),
+            ...(dateTo ? { lte: dateTo } : {}),
+          }
+        : undefined;
 
     // Tìm customer IDs khớp với search (có dấu hoặc không dấu) dùng unaccent
     let matchedCustomerIds: string[] = [];
@@ -85,6 +98,7 @@ export const orderService = {
       ...(fromBooking ? { bookingFromConvert: { isNot: null } } : {}),
       // Đơn nợ: đã giao nhưng chưa thu tiền (paidAt null)
       ...(debt ? { status: OrderStatus.DELIVERED, paidAt: null } : {}),
+      ...(dateRange ? (byDelivered ? { deliveredAt: dateRange } : { createdAt: dateRange }) : {}),
       ...(search
         ? {
             OR: [
@@ -104,7 +118,10 @@ export const orderService = {
         include: orderInclude,
         // 1 câu SQL JOIN thay vì nhiều query rời → giảm số vòng tới DB (Tokyo)
         relationLoadStrategy: 'join',
-        orderBy: { createdAt: 'desc' },
+        // Tab "Đã giao" → sắp theo giờ giao mới nhất; còn lại theo giờ tạo
+        orderBy: byDelivered
+          ? [{ deliveredAt: 'desc' }, { createdAt: 'desc' }]
+          : { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

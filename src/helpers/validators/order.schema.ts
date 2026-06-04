@@ -68,6 +68,10 @@ export const listOrderSchema = z.object({
       .union([z.literal('true'), z.literal('false')])
       .optional()
       .transform((v) => (v === undefined ? undefined : v === 'true')),
+    // Lọc theo ngày (FE gửi mốc 00:00 → 23:59 của ngày được chọn). Áp cho
+    // createdAt; riêng tab "Đã giao" backend tự áp + sort theo deliveredAt.
+    dateFrom: z.coerce.date().optional(),
+    dateTo: z.coerce.date().optional(),
     page: z.coerce.number().int().min(1).default(1),
     // max 1000 để màn "Rà soát đơn" tải hết đơn còn trên kệ trong 1 lần
     pageSize: z.coerce.number().int().min(1).max(1000).default(20),

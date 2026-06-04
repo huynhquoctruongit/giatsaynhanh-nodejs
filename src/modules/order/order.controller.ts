@@ -20,6 +20,8 @@ export const orderController = {
       customerId?: string;
       fromBooking?: boolean;
       debt?: boolean;
+      dateFrom?: Date;
+      dateTo?: Date;
       page: number;
       pageSize: number;
     };
