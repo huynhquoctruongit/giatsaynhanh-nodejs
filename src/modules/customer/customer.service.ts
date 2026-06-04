@@ -7,8 +7,8 @@ import type {
 } from '../../helpers/validators/customer.schema';
 
 export const customerService = {
-  async list(params: { search?: string; page: number; pageSize: number }) {
-    const { search, page, pageSize } = params;
+  async list(params: { search?: string; sort?: 'recent' | 'orders'; page: number; pageSize: number }) {
+    const { search, sort, page, pageSize } = params;
     let where: Prisma.CustomerWhereInput = {};
     if (search) {
       // Tìm không dấu: unaccent(name) khớp cả khi gõ có dấu lẫn không dấu
@@ -26,11 +26,21 @@ export const customerService = {
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: { createdAt: 'desc' },
+        include: { _count: { select: { orders: true } } },
+        // sort='orders' → khách giặt nhiều nhất lên đầu
+        orderBy:
+          sort === 'orders'
+            ? [{ orders: { _count: 'desc' } }, { createdAt: 'desc' }]
+            : { createdAt: 'desc' },
       }),
     ]);
 
-    return { items, total, page, pageSize };
+    return {
+      items: items.map(({ _count, ...c }) => ({ ...c, orderCount: _count.orders })),
+      total,
+      page,
+      pageSize,
+    };
   },
 
   async getById(id: string) {

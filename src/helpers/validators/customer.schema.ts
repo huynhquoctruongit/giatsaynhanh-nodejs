@@ -22,6 +22,7 @@ export const updateCustomerSchema = z.object({
 export const listCustomerSchema = z.object({
   query: z.object({
     search: z.string().optional(),
+    sort: z.enum(['recent', 'orders']).optional(),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(500).default(20),
   }),

@@ -5,12 +5,13 @@ import { HTTP_STATUS } from '../../helpers/constants/http';
 
 export const customerController = {
   list: asyncHandler(async (req: Request, res: Response) => {
-    const { search, page, pageSize } = req.query as unknown as {
+    const { search, sort, page, pageSize } = req.query as unknown as {
       search?: string;
+      sort?: 'recent' | 'orders';
       page: number;
       pageSize: number;
     };
-    const data = await customerService.list({ search, page, pageSize });
+    const data = await customerService.list({ search, sort, page, pageSize });
     res.json({ success: true, data });
   }),
 
