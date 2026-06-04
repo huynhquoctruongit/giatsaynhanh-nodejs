@@ -5,6 +5,7 @@ import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
 import { generateOrderCode } from '../../helpers/utils/order-code';
 import { generateQrToken } from '../../helpers/utils/qr';
 import { sendPush, getActiveTokens } from '../../lib/firebase';
+import { fmtVNTime } from '../../helpers/utils/notify-format';
 import type {
   ConvertBookingInput,
   CreateBookingFromQrInput,
@@ -198,8 +199,8 @@ export const bookingService = {
     getActiveTokens(prisma).then((tokens) =>
       sendPush(
         tokens,
-        '📅 Đặt lịch mới',
-        `${booking.code} · ${booking.customer?.name ?? 'Khách'}${booking.address ? ' · ' + booking.address : ''}`,
+        'Đặt giao nhận',
+        `${booking.customer?.name ?? 'Khách'} - ${booking.phone || booking.customer?.phone || '—'} - ${booking.pickupAt ? fmtVNTime(booking.pickupAt) : 'chưa hẹn giờ'}`,
         { bookingId: booking.id, type: 'NEW_BOOKING' },
       ),
     );

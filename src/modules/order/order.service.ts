@@ -10,6 +10,7 @@ import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
 import { generateOrderCode } from '../../helpers/utils/order-code';
 import { generateQrToken } from '../../helpers/utils/qr';
 import { sendPush, getActiveTokens } from '../../lib/firebase';
+import { fmtMoney, fmtVNTime } from '../../helpers/utils/notify-format';
 import type {
   CreateOrderInput,
   UpdateOrderInput,
@@ -169,8 +170,8 @@ export const orderService = {
     getActiveTokens(prisma).then((tokens) =>
       sendPush(
         tokens,
-        '🧺 Đơn mới',
-        `${order.code} · ${order.customer?.name ?? 'Khách'}`,
+        'Đơn mới',
+        `${order.customer?.name ?? 'Khách'} - ${fmtMoney(order.totalAmount)} - ${fmtVNTime(new Date())}`,
         { orderId: order.id, type: 'NEW_ORDER' },
       ),
     );
@@ -255,8 +256,8 @@ export const orderService = {
       getActiveTokens(prisma).then((tokens) =>
         sendPush(
           tokens,
-          '✅ Đơn đã giao',
-          `${updated.code} · ${updated.customer?.name ?? 'Khách'} đã nhận đồ`,
+          'Đã giao',
+          `${updated.customer?.name ?? 'Khách'} - ${fmtMoney(updated.totalAmount)} - ${fmtVNTime(new Date())}`,
           { orderId: updated.id, type: 'ORDER_DELIVERED' },
         ),
       );
@@ -282,8 +283,8 @@ export const orderService = {
       getActiveTokens(prisma).then((tokens) =>
         sendPush(
           tokens,
-          '💰 Đơn nợ',
-          `${order.code} · ${order.customer?.name ?? 'Khách'} chưa thanh toán ${Number(order.totalAmount).toLocaleString('vi-VN')}đ`,
+          'Đơn nợ',
+          `${order.customer?.name ?? 'Khách'} - ${fmtMoney(order.totalAmount)} - ${fmtVNTime(new Date())}`,
           { orderId: order.id, type: 'ORDER_DEBT' },
         ),
       );
