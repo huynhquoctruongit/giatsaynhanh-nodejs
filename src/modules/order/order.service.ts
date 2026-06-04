@@ -101,6 +101,8 @@ export const orderService = {
       prisma.order.findMany({
         where,
         include: orderInclude,
+        // 1 câu SQL JOIN thay vì nhiều query rời → giảm số vòng tới DB (Tokyo)
+        relationLoadStrategy: 'join',
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -114,6 +116,7 @@ export const orderService = {
     const order = await prisma.order.findUnique({
       where: { id },
       include: orderInclude,
+      relationLoadStrategy: 'join',
     });
     if (!order) throw new NotFoundError('Order not found');
     return order;

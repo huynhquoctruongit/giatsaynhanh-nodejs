@@ -1,7 +1,10 @@
 // Prisma schema for Laundry QR backend (PostgreSQL / Neon)
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // Gộp include thành 1 câu SQL JOIN (giảm số vòng tới DB — quan trọng khi
+  // server và DB ở khác region). Bật relationLoadStrategy: "join" theo từng query.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
