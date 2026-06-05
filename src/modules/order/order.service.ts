@@ -52,20 +52,28 @@ export const orderService = {
       dateFrom || dateTo
         ? { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) }
         : undefined;
-    // MỌI trạng thái đếm theo NGÀY TẠO (đồng nhất) → "Tất cả" = tổng các trạng thái,
-    // không còn cảnh Tất cả < Đã giao.
+    // Trạng thái (trừ DELIVERED) đếm theo NGÀY TẠO; riêng DELIVERED đếm theo
+    // NGÀY GIAO (từ lúc khách lấy đồ). "Tất cả" = TỔNG tất cả các tab.
     const created = range ? { createdAt: range } : {};
+    const delivered = range ? { deliveredAt: range } : {};
 
-    const [groups, bookingCount, allCount] = await Promise.all([
+    const [groups, bookingCount, deliveredCount] = await Promise.all([
       prisma.order.groupBy({ by: ['status'], where: created, _count: { id: true } }),
       prisma.order.count({ where: { bookingFromConvert: { isNot: null }, ...created } }),
-      prisma.order.count({ where: created }),
+      prisma.order.count({ where: { status: OrderStatus.DELIVERED, ...delivered } }),
     ]);
     const counts: Record<string, number> = {};
-    for (const g of groups) counts[g.status] = g._count.id;
+    let allSum = 0;
+    for (const g of groups) {
+      if (g.status === OrderStatus.DELIVERED) continue; // bỏ DELIVERED-theo-ngày-tạo
+      counts[g.status] = g._count.id;
+      allSum += g._count.id;
+    }
+    counts[OrderStatus.DELIVERED] = deliveredCount; // đếm theo NGÀY GIAO
+    allSum += deliveredCount;
     // Đơn đặt (giao tận nhà) — key riêng; FE KHÔNG cộng vào "Tất cả"
     counts.BOOKING = bookingCount;
-    counts.ALL = allCount; // "Tất cả" theo ngày tạo = tổng các trạng thái
+    counts.ALL = allSum; // = tổng tất cả các tab (luôn ≥ mỗi tab)
     return counts;
   },
 
@@ -111,18 +119,36 @@ export const orderService = {
       ...(fromBooking ? { bookingFromConvert: { isNot: null } } : {}),
       // Đơn nợ: đã giao nhưng chưa thu tiền (paidAt null)
       ...(debt ? { status: OrderStatus.DELIVERED, paidAt: null } : {}),
-      ...(dateRange ? { createdAt: dateRange } : {}),
-      ...(search
-        ? {
-            OR: [
-              { code: { contains: search, mode: 'insensitive' } },
-              ...(matchedCustomerIds.length > 0
-                ? [{ customerId: { in: matchedCustomerIds } }]
-                : []),
-            ],
-          }
-        : {}),
     };
+
+    const and: Prisma.OrderWhereInput[] = [];
+    if (dateRange) {
+      if (byDelivered) {
+        // Tab "Đã giao": lọc theo NGÀY GIAO (đếm từ lúc khách lấy đồ)
+        and.push({ deliveredAt: dateRange });
+      } else if (status || fromBooking || debt) {
+        // Tab trạng thái khác / đơn đặt: theo NGÀY TẠO
+        and.push({ createdAt: dateRange });
+      } else {
+        // Tab "Tất cả": đơn CHƯA giao tạo trong ngày HOẶC đơn ĐÃ giao trong ngày
+        // → khớp tổng các tab (chưa-giao theo ngày tạo + đã-giao theo ngày giao)
+        and.push({
+          OR: [
+            { status: { not: OrderStatus.DELIVERED }, createdAt: dateRange },
+            { status: OrderStatus.DELIVERED, deliveredAt: dateRange },
+          ],
+        });
+      }
+    }
+    if (search) {
+      and.push({
+        OR: [
+          { code: { contains: search, mode: 'insensitive' } },
+          ...(matchedCustomerIds.length > 0 ? [{ customerId: { in: matchedCustomerIds } }] : []),
+        ],
+      });
+    }
+    if (and.length) where.AND = and;
 
     const [total, items] = await Promise.all([
       prisma.order.count({ where }),
