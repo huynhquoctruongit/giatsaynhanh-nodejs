@@ -52,22 +52,20 @@ export const orderService = {
       dateFrom || dateTo
         ? { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) }
         : undefined;
-    // Các trạng thái đếm theo NGÀY TẠO; riêng DELIVERED theo NGÀY GIAO (khớp tab "Đã giao")
+    // MỌI trạng thái đếm theo NGÀY TẠO (đồng nhất) → "Tất cả" = tổng các trạng thái,
+    // không còn cảnh Tất cả < Đã giao.
     const created = range ? { createdAt: range } : {};
-    const delivered = range ? { deliveredAt: range } : {};
 
-    const [groups, bookingCount, deliveredCount, allCount] = await Promise.all([
+    const [groups, bookingCount, allCount] = await Promise.all([
       prisma.order.groupBy({ by: ['status'], where: created, _count: { id: true } }),
       prisma.order.count({ where: { bookingFromConvert: { isNot: null }, ...created } }),
-      prisma.order.count({ where: { status: OrderStatus.DELIVERED, ...delivered } }),
       prisma.order.count({ where: created }),
     ]);
     const counts: Record<string, number> = {};
     for (const g of groups) counts[g.status] = g._count.id;
-    counts[OrderStatus.DELIVERED] = deliveredCount; // đếm theo ngày giao
     // Đơn đặt (giao tận nhà) — key riêng; FE KHÔNG cộng vào "Tất cả"
     counts.BOOKING = bookingCount;
-    counts.ALL = allCount; // "Tất cả" theo ngày tạo (FE dùng key này thay vì cộng dồn)
+    counts.ALL = allCount; // "Tất cả" theo ngày tạo = tổng các trạng thái
     return counts;
   },
 
@@ -84,7 +82,8 @@ export const orderService = {
   }) {
     const { search, status, customerId, fromBooking, debt, dateFrom, dateTo, page, pageSize } = params;
 
-    // Tab "Đã giao" lọc & sắp theo NGÀY GIAO (deliveredAt); các tab khác theo NGÀY TẠO.
+    // Lọc theo NGÀY TẠO cho mọi tab (đồng nhất với chips). Riêng tab "Đã giao"
+    // chỉ khác ở SẮP XẾP: theo giờ giao mới nhất.
     const byDelivered = status === OrderStatus.DELIVERED;
     // Lọc theo ngày — BỎ QUA khi đang tìm kiếm (để tìm xuyên suốt mọi ngày).
     const dateRange =
@@ -112,7 +111,7 @@ export const orderService = {
       ...(fromBooking ? { bookingFromConvert: { isNot: null } } : {}),
       // Đơn nợ: đã giao nhưng chưa thu tiền (paidAt null)
       ...(debt ? { status: OrderStatus.DELIVERED, paidAt: null } : {}),
-      ...(dateRange ? (byDelivered ? { deliveredAt: dateRange } : { createdAt: dateRange }) : {}),
+      ...(dateRange ? { createdAt: dateRange } : {}),
       ...(search
         ? {
             OR: [
