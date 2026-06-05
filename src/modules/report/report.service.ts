@@ -16,27 +16,36 @@ const dateRange = (from?: Date, to?: Date) => ({
   ...(to ? { lte: to } : {}),
 });
 
+// Doanh thu = đơn ĐÃ GIẶT (READY, tính theo ngày tạo) + ĐÃ GIAO (DELIVERED,
+// tính theo ngày giao). Đơn đang xử lý / đã huỷ KHÔNG tính.
+async function revenueInRange(filter: { gte?: Date; lte?: Date }) {
+  const [ready, delivered] = await Promise.all([
+    prisma.order.aggregate({
+      where: { status: 'READY', createdAt: filter },
+      _sum: { totalAmount: true },
+    }),
+    prisma.order.aggregate({
+      where: { status: 'DELIVERED', deliveredAt: filter },
+      _sum: { totalAmount: true },
+    }),
+  ]);
+  return Number(ready._sum.totalAmount ?? 0) + Number(delivered._sum.totalAmount ?? 0);
+}
+
 export const reportService = {
   async dashboard(date: Date = new Date()) {
     const { start, end } = dayRange(date);
 
     const [
-      revenueResult,
-      deliveredRevenueResult,
+      revenue,
+      collectedResult,
       newOrders,
       deliveredOrders,
       ordersByStatus,
     ] = await Promise.all([
-      // Doanh thu = tổng tiền MỌI đơn tạo trong ngày, trừ đơn đã huỷ
-      // (đơn bị xoá đã không còn trong DB nên tự loại)
-      prisma.order.aggregate({
-        where: {
-          status: { not: 'CANCELLED' },
-          createdAt: { gte: start, lte: end },
-        },
-        _sum: { totalAmount: true },
-      }),
-      // Lợi nhuận = tổng tiền đơn THU TIỀN trong ngày (đơn nợ chưa thu → chưa tính)
+      // Doanh thu = đơn ĐÃ GIẶT (READY) + ĐÃ GIAO (DELIVERED) trong ngày
+      revenueInRange({ gte: start, lte: end }),
+      // "Đã thu" = tổng tiền đơn THU TIỀN trong ngày (đơn nợ chưa thu → chưa tính)
       prisma.order.aggregate({
         where: { paidAt: { gte: start, lte: end } },
         _sum: { totalAmount: true },
@@ -51,8 +60,8 @@ export const reportService = {
       }),
     ]);
 
-    const revenue = Number(revenueResult._sum.totalAmount ?? 0);
-    const profit = Number(deliveredRevenueResult._sum.totalAmount ?? 0);
+    // "Đã thu" (FE đang gọi field này là profit) = tiền thực thu trong ngày
+    const profit = Number(collectedResult._sum.totalAmount ?? 0);
 
     const statusMap: Record<string, number> = {};
     for (const row of ordersByStatus) {
@@ -92,12 +101,9 @@ export const reportService = {
     const { from, to } = params;
     const filter = dateRange(from, to);
 
-    const [revenueResult, expenseResult, incomeByCategory, expenseByCategory, dailyOrders] =
+    const [revenue, expenseResult, incomeByCategory, expenseByCategory, readyOrders, deliveredOrders] =
       await Promise.all([
-        prisma.order.aggregate({
-          where: { paidAt: { not: null, ...filter } },
-          _sum: { totalAmount: true },
-        }),
+        revenueInRange(filter),
         prisma.transaction.aggregate({
           where: { type: 'EXPENSE', date: filter },
           _sum: { amount: true },
@@ -115,21 +121,28 @@ export const reportService = {
           orderBy: { _sum: { amount: 'desc' } },
         }),
         prisma.order.findMany({
-          where: { paidAt: { not: null, ...filter } },
-          select: { paidAt: true, totalAmount: true },
+          where: { status: 'READY', createdAt: filter },
+          select: { createdAt: true, totalAmount: true },
+        }),
+        prisma.order.findMany({
+          where: { status: 'DELIVERED', deliveredAt: filter },
+          select: { deliveredAt: true, totalAmount: true },
         }),
       ]);
 
-    const revenue = Number(revenueResult._sum.totalAmount ?? 0);
     const expenses = Number(expenseResult._sum.amount ?? 0);
     const profit = revenue - expenses;
 
-    // Group by date
+    // Doanh thu theo ngày: đã giặt theo ngày tạo, đã giao theo ngày giao
     const dailyMap: Record<string, number> = {};
-    for (const order of dailyOrders) {
-      if (!order.paidAt) continue;
-      const key = order.paidAt.toISOString().slice(0, 10);
-      dailyMap[key] = (dailyMap[key] ?? 0) + Number(order.totalAmount);
+    for (const o of readyOrders) {
+      const key = o.createdAt.toISOString().slice(0, 10);
+      dailyMap[key] = (dailyMap[key] ?? 0) + Number(o.totalAmount);
+    }
+    for (const o of deliveredOrders) {
+      if (!o.deliveredAt) continue;
+      const key = o.deliveredAt.toISOString().slice(0, 10);
+      dailyMap[key] = (dailyMap[key] ?? 0) + Number(o.totalAmount);
     }
     const dailyRevenue = Object.entries(dailyMap)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -155,12 +168,10 @@ export const reportService = {
     const { from, to } = params;
     const filter = dateRange(from, to);
 
-    const [totalOrders, revenueResult, ordersByStatus, topProductsRaw] = await Promise.all([
+    const [totalOrders, totalRevenue, ordersByStatus, topProductsRaw] = await Promise.all([
       prisma.order.count({ where: { createdAt: filter } }),
-      prisma.order.aggregate({
-        where: { paidAt: { not: null, ...filter } },
-        _sum: { totalAmount: true },
-      }),
+      // Doanh thu = đơn đã giặt + đã giao
+      revenueInRange(filter),
       prisma.order.groupBy({
         by: ['status'],
         where: { createdAt: filter },
@@ -176,7 +187,6 @@ export const reportService = {
       }),
     ]);
 
-    const totalRevenue = Number(revenueResult._sum.totalAmount ?? 0);
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     const statusMap: Record<string, number> = {};
