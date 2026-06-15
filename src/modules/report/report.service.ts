@@ -16,6 +16,9 @@ const dateRange = (from?: Date, to?: Date) => ({
   ...(to ? { lte: to } : {}),
 });
 
+// Mốc ngày theo giờ VN (UTC+7) để gom theo ngày khớp với người dùng thấy.
+const vnDayKey = (d: Date) => new Date(d.getTime() + VN_OFFSET_MS).toISOString().slice(0, 10);
+
 // Doanh thu = đơn ĐÃ GIẶT (READY, tính theo ngày tạo) + ĐÃ GIAO (DELIVERED,
 // tính theo ngày giao). Đơn đang xử lý / đã huỷ KHÔNG tính.
 async function revenueInRange(filter: { gte?: Date; lte?: Date }) {
@@ -140,9 +143,6 @@ export const reportService = {
     // "Lợi nhuận" theo cách hiểu của chủ tiệm = tiền thực thu trong khoảng
     const collected = paidOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
 
-    // Gom theo ngày VN (UTC+7) để khớp mốc ngày người dùng thấy
-    const vnDayKey = (d: Date) => new Date(d.getTime() + VN_OFFSET_MS).toISOString().slice(0, 10);
-
     // Doanh thu theo ngày: đã giặt theo ngày tạo, đã giao theo ngày giao
     const dailyMap: Record<string, number> = {};
     for (const o of readyOrders) {
@@ -191,7 +191,7 @@ export const reportService = {
     const { from, to } = params;
     const filter = dateRange(from, to);
 
-    const [totalOrders, totalRevenue, ordersByStatus, topProductsRaw] = await Promise.all([
+    const [totalOrders, totalRevenue, ordersByStatus, topProductsRaw, paidOrders] = await Promise.all([
       prisma.order.count({ where: { createdAt: filter } }),
       // Doanh thu = đơn đã giặt + đã giao
       revenueInRange(filter),
@@ -208,9 +208,27 @@ export const reportService = {
         orderBy: { _count: { id: 'desc' } },
         take: 10,
       }),
+      // Tiền thực thu (đã thanh toán) trong khoảng — theo paidAt
+      prisma.order.findMany({
+        where: { paidAt: filter },
+        select: { paidAt: true, totalAmount: true },
+      }),
     ]);
 
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    // "Đã thu" = tổng tiền các đơn đã thanh toán trong khoảng
+    const collected = paidOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
+
+    // Tiền thực thu theo từng ngày (cho biểu đồ cột "Đã thu theo ngày")
+    const collectedMap: Record<string, number> = {};
+    for (const o of paidOrders) {
+      if (!o.paidAt) continue;
+      const key = vnDayKey(o.paidAt);
+      collectedMap[key] = (collectedMap[key] ?? 0) + Number(o.totalAmount);
+    }
+    const dailyCollected = Object.entries(collectedMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, amount]) => ({ date, amount }));
 
     const statusMap: Record<string, number> = {};
     for (const row of ordersByStatus) {
@@ -220,13 +238,15 @@ export const reportService = {
     return {
       totalOrders,
       totalRevenue,
+      collected,
       avgOrderValue,
       topProducts: topProductsRaw.map((r) => ({
         name: r.name,
-        count: r._count.id,
+        quantity: r._count.id,
         revenue: Number(r._sum.unitPrice ?? 0),
       })),
       ordersByStatus: statusMap,
+      dailyCollected,
     };
   },
 
