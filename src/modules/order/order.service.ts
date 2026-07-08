@@ -203,6 +203,7 @@ export const orderService = {
         qrToken: generateQrToken(),
         customerId: input.customerId,
         status: OrderStatus.READY,
+        readyAt: new Date(),
         note: input.note,
         pickupAt: input.pickupAt,
         totalAmount: total,
@@ -299,6 +300,11 @@ export const orderService = {
           status === OrderStatus.DELIVERED
             ? (order.deliveredAt ?? new Date())
             : null,
+        // Đặt mốc giặt xong khi chuyển sang READY hoặc DELIVERED
+        readyAt:
+          status === OrderStatus.READY || status === OrderStatus.DELIVERED
+            ? (order.readyAt ?? new Date())
+            : order.readyAt,
         // Giao = mặc định ĐÃ THU TIỀN (vào lợi nhuận ngay). Nếu là đơn nợ,
         // nhân viên bấm "Đánh dấu nợ" sau để xoá paidAt. Rời DELIVERED → xoá paidAt.
         ...(becomingDelivered ? { paidAt: new Date() } : {}),

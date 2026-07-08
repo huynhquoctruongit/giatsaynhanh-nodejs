@@ -19,20 +19,16 @@ const dateRange = (from?: Date, to?: Date) => ({
 // Mốc ngày theo giờ VN (UTC+7) để gom theo ngày khớp với người dùng thấy.
 const vnDayKey = (d: Date) => new Date(d.getTime() + VN_OFFSET_MS).toISOString().slice(0, 10);
 
-// Doanh thu = đơn ĐÃ GIẶT (READY, tính theo ngày tạo) + ĐÃ GIAO (DELIVERED,
-// tính theo ngày giao). Đơn đang xử lý / đã huỷ KHÔNG tính.
+// Doanh thu = đơn ĐÃ GIẶT (READY hoặc DELIVERED) có readyAt trong khoảng.
 async function revenueInRange(filter: { gte?: Date; lte?: Date }) {
-  const [ready, delivered] = await Promise.all([
-    prisma.order.aggregate({
-      where: { status: 'READY', createdAt: filter },
-      _sum: { totalAmount: true },
-    }),
-    prisma.order.aggregate({
-      where: { status: 'DELIVERED', deliveredAt: filter },
-      _sum: { totalAmount: true },
-    }),
-  ]);
-  return Number(ready._sum.totalAmount ?? 0) + Number(delivered._sum.totalAmount ?? 0);
+  const result = await prisma.order.aggregate({
+    where: {
+      readyAt: filter,
+      status: { in: ['READY', 'DELIVERED'] },
+    },
+    _sum: { totalAmount: true },
+  });
+  return Number(result._sum.totalAmount ?? 0);
 }
 
 export const reportService = {
@@ -104,7 +100,7 @@ export const reportService = {
     const { from, to } = params;
     const filter = dateRange(from, to);
 
-    const [revenue, expenseResult, incomeByCategory, expenseByCategory, readyOrders, deliveredOrders, paidOrders] =
+    const [revenue, expenseResult, incomeByCategory, expenseByCategory, readyOrders, paidOrders] =
       await Promise.all([
         revenueInRange(filter),
         prisma.transaction.aggregate({
@@ -124,12 +120,8 @@ export const reportService = {
           orderBy: { _sum: { amount: 'desc' } },
         }),
         prisma.order.findMany({
-          where: { status: 'READY', createdAt: filter },
-          select: { createdAt: true, totalAmount: true },
-        }),
-        prisma.order.findMany({
-          where: { status: 'DELIVERED', deliveredAt: filter },
-          select: { deliveredAt: true, totalAmount: true },
+          where: { readyAt: filter, status: { in: ['READY', 'DELIVERED'] } },
+          select: { readyAt: true, totalAmount: true },
         }),
         // Tiền thực thu (đã thanh toán) trong khoảng — theo paidAt
         prisma.order.findMany({
@@ -143,15 +135,11 @@ export const reportService = {
     // "Lợi nhuận" theo cách hiểu của chủ tiệm = tiền thực thu trong khoảng
     const collected = paidOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
 
-    // Doanh thu theo ngày: đã giặt theo ngày tạo, đã giao theo ngày giao
+    // Doanh thu theo ngày: đã giặt xong trong ngày (theo readyAt)
     const dailyMap: Record<string, number> = {};
     for (const o of readyOrders) {
-      const key = vnDayKey(o.createdAt);
-      dailyMap[key] = (dailyMap[key] ?? 0) + Number(o.totalAmount);
-    }
-    for (const o of deliveredOrders) {
-      if (!o.deliveredAt) continue;
-      const key = vnDayKey(o.deliveredAt);
+      if (!o.readyAt) continue;
+      const key = vnDayKey(o.readyAt);
       dailyMap[key] = (dailyMap[key] ?? 0) + Number(o.totalAmount);
     }
     const dailyRevenue = Object.entries(dailyMap)
