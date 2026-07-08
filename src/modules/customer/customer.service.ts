@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
-import { NotFoundError } from '../../helpers/utils/errors';
+import { NotFoundError, BadRequestError } from '../../helpers/utils/errors';
 import type {
   CreateCustomerInput,
   UpdateCustomerInput,
@@ -69,6 +69,23 @@ export const customerService = {
 
   async remove(id: string) {
     await this.getById(id);
+
+    // Kiểm tra ràng buộc khoá ngoại trước khi xoá để tránh lỗi 500
+    const orderCount = await prisma.order.count({ where: { customerId: id } });
+    if (orderCount > 0) {
+      throw new BadRequestError('Không thể xoá khách hàng đã có đơn hàng trong hệ thống. Hãy gộp khách hàng hoặc sửa lại đơn hàng trước.');
+    }
+
+    const bookingCount = await prisma.booking.count({ where: { customerId: id } });
+    if (bookingCount > 0) {
+      throw new BadRequestError('Không thể xoá khách hàng đã có lịch đặt trong hệ thống.');
+    }
+
+    const debtCount = await prisma.customerDebt.count({ where: { customerId: id } });
+    if (debtCount > 0) {
+      throw new BadRequestError('Không thể xoá khách hàng đang có lịch sử nợ trong hệ thống.');
+    }
+
     await prisma.customer.delete({ where: { id } });
   },
 
