@@ -55,7 +55,21 @@ export const customerService = {
   async create(input: CreateCustomerInput) {
     // Phone rỗng → null để nhiều khách không SĐT không đụng ràng buộc @unique
     const phone = input.phone?.trim() ? input.phone.trim() : null;
-    return prisma.customer.create({ data: { ...input, phone } });
+    const name = input.name.trim();
+    // Chặn trùng tên CHÍNH XÁC (nhân viên hay lỡ tạo trùng)
+    const dup = await prisma.customer.findUnique({ where: { name } });
+    if (dup) {
+      throw new BadRequestError(`Đã có khách hàng tên "${name}". Không thể tạo trùng tên.`);
+    }
+    try {
+      return await prisma.customer.create({ data: { ...input, name, phone } });
+    } catch (e) {
+      // Chốt chặn cuối từ unique index của DB (phòng khi 2 request chạy song song)
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestError(`Đã có khách hàng tên "${name}". Không thể tạo trùng tên.`);
+      }
+      throw e;
+    }
   },
 
   async update(id: string, input: UpdateCustomerInput) {
@@ -64,7 +78,23 @@ export const customerService = {
     if ('phone' in input) {
       data.phone = input.phone?.trim() ? input.phone.trim() : null;
     }
-    return prisma.customer.update({ where: { id }, data });
+    if (typeof input.name === 'string') {
+      const name = input.name.trim();
+      data.name = name;
+      // Nếu đổi tên trùng với khách KHÁC → chặn
+      const dup = await prisma.customer.findUnique({ where: { name } });
+      if (dup && dup.id !== id) {
+        throw new BadRequestError(`Đã có khách hàng tên "${name}". Không thể đổi trùng tên.`);
+      }
+    }
+    try {
+      return await prisma.customer.update({ where: { id }, data });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestError(`Đã có khách hàng tên "${data.name}". Không thể đổi trùng tên.`);
+      }
+      throw e;
+    }
   },
 
   async remove(id: string) {

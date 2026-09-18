@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authRouter } from './modules/auth/auth.routes';
+import { bankRouter } from './modules/bank/bank.routes';
 import { bookingRouter } from './modules/booking/booking.routes';
 import { customerRouter } from './modules/customer/customer.routes';
 import { debtRouter } from './modules/debt/debt.routes';
@@ -65,6 +66,8 @@ router.get('/debug/fcm', async (_req, res) => {
 });
 
 router.use('/auth', authRouter);
+// GPM Pay: webhook (/webhooks/gpmpay) + /bank/today, /bank/sync — dùng path tuyệt đối
+router.use('/', bankRouter);
 router.use('/bookings', bookingRouter);
 router.use('/customers', customerRouter);
 router.use('/debt', debtRouter);

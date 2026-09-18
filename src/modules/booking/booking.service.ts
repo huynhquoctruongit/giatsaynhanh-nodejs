@@ -67,9 +67,22 @@ export const bookingService = {
     });
 
     if (!customer) {
-      customer = await prisma.customer.create({
-        data: { name: name || `Khách ${phone}`, phone, address: address || null },
-      });
+      // Tên phải là unique. Nếu tên khách nhập trùng người khác → thêm đuôi SĐT
+      // cho phân biệt, tránh vi phạm ràng buộc unique(name) làm hỏng đặt lịch.
+      const baseName = name || `Khách ${phone}`;
+      try {
+        customer = await prisma.customer.create({
+          data: { name: baseName, phone, address: address || null },
+        });
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          customer = await prisma.customer.create({
+            data: { name: `${baseName} (${phone})`, phone, address: address || null },
+          });
+        } else {
+          throw e;
+        }
+      }
     } else if (address && address !== (customer.address ?? '')) {
       customer = await prisma.customer.update({
         where: { id: customer.id },

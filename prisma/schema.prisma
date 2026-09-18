@@ -41,7 +41,7 @@ model User {
 
 model Customer {
   id        String   @id @default(uuid())
-  name      String
+  name      String   @unique // KHÔNG cho trùng tên (chính xác) — chặn nhân viên lỡ tạo trùng
   phone     String?  // SĐT không bắt buộc & KHÔNG unique (cho phép trùng / để trống)
   address   String?
   note      String?
@@ -321,6 +321,27 @@ model ShiftAttendance {
 
   @@index([shiftId])
   @@index([userId])
+}
+
+// Giao dịch ngân hàng nhận từ GPM Pay (webhook + đối soát REST).
+// Chỉ để HIỂN THỊ tiền chuyển khoản — KHÔNG dính vào logic doanh thu/đơn hàng.
+model BankTransaction {
+  id             String   @id @default(uuid())
+  externalId     String   @unique // id giao dịch từ GPM Pay → chống trùng (webhook + REST)
+  gateway        String? // ngân hàng, vd "MBBank"
+  accountNumber  String? // STK nhận tiền
+  amount         Decimal  @db.Decimal(14, 2)
+  direction      String // IN | OUT
+  content        String? // nội dung chuyển khoản
+  counterName    String? // tên người chuyển (nếu có)
+  counterAccount String? // STK người chuyển (nếu có)
+  referenceCode  String?
+  source         String? // REAL | SIMULATED
+  transactionAt  DateTime // thời điểm giao dịch (từ GPM Pay)
+  createdAt      DateTime @default(now())
+
+  @@index([transactionAt])
+  @@index([direction])
 }
 
 model ShopSettings {

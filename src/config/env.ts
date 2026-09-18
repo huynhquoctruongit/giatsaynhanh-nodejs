@@ -22,6 +22,13 @@ export const env = {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
+  // GPM Pay — nhận tiền chuyển khoản (webhook + REST đối soát).
+  // KHÔNG bắt buộc: thiếu key/secret thì webhook trả 503, phần còn lại vẫn chạy.
+  gpmpay: {
+    apiKey: process.env.GPMPAY_API_KEY ?? '',
+    webhookSecret: process.env.GPMPAY_WEBHOOK_SECRET ?? '',
+    apiUrl: process.env.GPMPAY_API_URL ?? 'https://api.gpmpay.com/api/v1',
+  },
 } as const;
 
 export const isProd = env.nodeEnv === 'production';

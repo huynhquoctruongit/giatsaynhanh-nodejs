@@ -23,7 +23,17 @@ export const createApp = () => {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: '10mb' }));
+  app.use(
+    express.json({
+      limit: '10mb',
+      // Giữ raw body để verify HMAC chữ ký webhook GPM Pay (chỉ path webhook mới dùng).
+      verify: (req, _res, buf) => {
+        if (req.url?.startsWith('/api/webhooks/')) {
+          (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+        }
+      },
+    }),
+  );
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(morgan(isProd ? 'combined' : 'dev'));
 
