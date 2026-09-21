@@ -14,14 +14,16 @@ const server = app.listen(env.port, () => {
 let gpmpayTimer: NodeJS.Timeout | undefined;
 if (env.gpmpay.apiKey) {
   const RECONCILE_MS = 5 * 60 * 1000;
-  gpmpayTimer = setInterval(() => {
+  const runSync = () =>
     bankService
       .syncFromApi()
       .then((r) => {
-        if (r.upserted > 0) console.log(`[gpmpay] đối soát: nạp ${r.upserted}/${r.fetched} giao dịch`);
+        console.log(`[gpmpay] đối soát: nạp ${r.upserted}/${r.fetched} giao dịch`);
       })
       .catch((err) => console.error('[gpmpay] đối soát lỗi:', err?.message ?? err));
-  }, RECONCILE_MS);
+
+  void runSync(); // chạy ngay lúc khởi động, không đợi 5 phút đầu
+  gpmpayTimer = setInterval(runSync, RECONCILE_MS);
   gpmpayTimer.unref?.();
 }
 

@@ -27,7 +27,7 @@ export const env = {
   gpmpay: {
     apiKey: process.env.GPMPAY_API_KEY ?? '',
     webhookSecret: process.env.GPMPAY_WEBHOOK_SECRET ?? '',
-    apiUrl: process.env.GPMPAY_API_URL ?? 'https://api.gpmpay.com/api/v1',
+    apiUrl: (process.env.GPMPAY_API_URL ?? 'https://api.gpmpay.com/api/v1').replace(/\/+$/, ''),
   },
 } as const;
 
