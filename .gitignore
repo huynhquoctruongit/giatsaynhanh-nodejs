@@ -12,3 +12,6 @@ prisma/*.db-journal
 
 # Firebase service account key (sensitive — never commit)
 *firebase-adminsdk*.json
+
+# DB backups (chứa dữ liệu khách hàng thật — never commit)
+db-backups/
