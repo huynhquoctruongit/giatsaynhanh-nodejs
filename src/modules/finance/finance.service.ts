@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError } from '../../helpers/utils/errors';
 import type {
   CreateTransactionInput,
@@ -55,6 +56,7 @@ export const financeService = {
       data: {
         ...input,
         createdById,
+        shopId: getCurrentShopId(),
       },
       include: { createdBy: { select: { id: true, name: true } } },
     });

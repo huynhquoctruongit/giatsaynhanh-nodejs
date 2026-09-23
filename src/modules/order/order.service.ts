@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { OrderStatus } from '../../helpers/enums';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 
 /** Chuẩn hoá tiếng Việt có dấu → không dấu để tìm kiếm */
 function normalizeVN(s: string): string {
@@ -210,8 +211,10 @@ export const orderService = {
         discountAmount,
         assignedToId: input.assignedToId,
         createdById,
+        shopId: getCurrentShopId(),
         items: {
           create: input.items.map((i) => ({
+            shopId: getCurrentShopId(),
             productId: i.productId,
             name: i.name,
             quantity: i.quantity,
@@ -250,6 +253,7 @@ export const orderService = {
         await tx.orderItem.deleteMany({ where: { orderId: id } });
         await tx.orderItem.createMany({
           data: input.items.map((i) => ({
+            shopId: getCurrentShopId(),
             orderId: id,
             productId: i.productId,
             name: i.name,

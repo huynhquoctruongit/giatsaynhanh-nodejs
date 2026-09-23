@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { hashPassword } from '../../helpers/utils/hash';
 import {
   ConflictError,
@@ -58,12 +59,13 @@ export const staffService = {
   },
 
   async create(input: CreateStaffInput) {
-    const existed = await prisma.user.findUnique({ where: { email: input.email } });
+    const existed = await prisma.user.findFirst({ where: { email: input.email } });
     if (existed) throw new ConflictError('Email already in use');
 
     const password = await hashPassword(input.password);
     const created = await prisma.user.create({
       data: {
+        shopId: getCurrentShopId(),
         email: input.email,
         password,
         name: input.name,

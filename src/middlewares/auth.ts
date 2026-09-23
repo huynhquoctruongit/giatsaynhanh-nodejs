@@ -2,9 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import { UserRole } from '../helpers/enums';
 import type { Permission } from '../helpers/enums';
 import { ForbiddenError, UnauthorizedError } from '../helpers/utils/errors';
-import { verifyToken, type JwtPayload } from '../helpers/utils/jwt';
+import { verifyToken, verifyPlatformToken, type JwtPayload } from '../helpers/utils/jwt';
 import { parsePermissionMap, userHasPermission, type PermissionMap } from '../helpers/utils/permissions';
-import { prisma } from '../config/prisma';
+import { prismaUnscoped } from '../config/prisma';
+import { runWithShop } from '../helpers/context/tenant-context';
 
 export interface AuthUser extends JwtPayload {
   permissions: PermissionMap;
@@ -12,18 +13,26 @@ export interface AuthUser extends JwtPayload {
   isActive: boolean;
 }
 
+export interface PlatformAuthUser {
+  sub: string;
+  email: string;
+}
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: AuthUser;
+      platformAdmin?: PlatformAuthUser;
     }
   }
 }
 
+// Dùng prismaUnscoped: tại thời điểm này shopId của request CHƯA được biết
+// (chính là thứ ta đang tìm) nên chưa thể chạy trong tenant context.
 const loadAuthUser = async (token: string): Promise<AuthUser> => {
   const payload = verifyToken(token);
-  const dbUser = await prisma.user.findUnique({
+  const dbUser = await prismaUnscoped.user.findUnique({
     where: { id: payload.sub },
     select: {
       id: true,
@@ -32,6 +41,7 @@ const loadAuthUser = async (token: string): Promise<AuthUser> => {
       isActive: true,
       permissions: true,
       orderViewTimeLimit: true,
+      shopId: true,
     },
   });
   if (!dbUser || !dbUser.isActive) {
@@ -41,6 +51,7 @@ const loadAuthUser = async (token: string): Promise<AuthUser> => {
     sub: dbUser.id,
     email: dbUser.email,
     role: dbUser.role as UserRole,
+    shopId: dbUser.shopId,
     permissions: parsePermissionMap(dbUser.permissions),
     orderViewTimeLimit: dbUser.orderViewTimeLimit,
     isActive: dbUser.isActive,
@@ -62,7 +73,9 @@ export const authStaff = async (
     const token = extractBearer(req);
     if (!token) throw new UnauthorizedError('Missing Bearer token');
     req.user = await loadAuthUser(token);
-    next();
+    // Mọi middleware/controller/service phía sau next() chạy trong cùng async
+    // continuation này, nên tự động nằm trong tenant context của đúng shopId.
+    runWithShop(req.user.shopId, next);
   } catch (err) {
     next(err);
   }
@@ -93,6 +106,31 @@ export const requirePermission =
     next();
   };
 
+// Superadmin (quản lý nhiều tiệm) — KHÔNG chạy runWithShop vì thao tác vốn
+// cross-shop; service của module platform luôn dùng prismaUnscoped tường minh.
+export const authPlatform = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const token = extractBearer(req);
+    if (!token) throw new UnauthorizedError('Missing Bearer token');
+    const payload = verifyPlatformToken(token);
+    const admin = await prismaUnscoped.platformAdmin.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, isActive: true },
+    });
+    if (!admin || !admin.isActive) {
+      throw new UnauthorizedError('Account disabled or removed');
+    }
+    req.platformAdmin = { sub: admin.id, email: admin.email };
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const optionalAuth = async (
   req: Request,
   _res: Response,
@@ -104,6 +142,7 @@ export const optionalAuth = async (
     req.user = await loadAuthUser(token);
   } catch {
     // Silently ignore for public endpoints where auth is optional
+    return next();
   }
-  next();
+  runWithShop(req.user.shopId, next);
 };

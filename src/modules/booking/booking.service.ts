@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { BookingStatus } from '../../helpers/enums';
 import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
 import { generateOrderCode } from '../../helpers/utils/order-code';
@@ -70,14 +71,15 @@ export const bookingService = {
       // Tên phải là unique. Nếu tên khách nhập trùng người khác → thêm đuôi SĐT
       // cho phân biệt, tránh vi phạm ràng buộc unique(name) làm hỏng đặt lịch.
       const baseName = name || `Khách ${phone}`;
+      const shopId = getCurrentShopId();
       try {
         customer = await prisma.customer.create({
-          data: { name: baseName, phone, address: address || null },
+          data: { shopId, name: baseName, phone, address: address || null },
         });
       } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
           customer = await prisma.customer.create({
-            data: { name: `${baseName} (${phone})`, phone, address: address || null },
+            data: { shopId, name: `${baseName} (${phone})`, phone, address: address || null },
           });
         } else {
           throw e;
@@ -195,8 +197,10 @@ export const bookingService = {
           pickupAt: input.pickupAt,
           deliveryAt: input.deliveryAt,
           note: input.note,
+          shopId: getCurrentShopId(),
           items: {
             create: input.items.map((i) => ({
+              shopId: getCurrentShopId(),
               productId: i.productId,
               name: i.name,
               quantity: i.quantity,
@@ -334,8 +338,10 @@ export const bookingService = {
           totalAmount: total,
           discountAmount,
           createdById,
+          shopId: getCurrentShopId(),
           items: {
             create: items.map((i) => ({
+              shopId: getCurrentShopId(),
               productId: i.productId,
               name: i.name,
               quantity: i.quantity,

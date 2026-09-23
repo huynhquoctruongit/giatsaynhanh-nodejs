@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 
 // Server chạy UTC (Render) → tính mốc ngày theo giờ VN (UTC+7) cho khớp với báo cáo.
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -86,18 +87,30 @@ export const bankService = {
       transactionAt: isNaN(transactionAt.getTime()) ? new Date() : transactionAt,
     };
 
+    // Webhook không có JWT → suy ra shopId qua số tài khoản nhận tiền đã cấu
+    // hình sẵn lúc onboard tiệm. Không map được thì để null (chưa gán tiệm).
+    const mapping = data.accountNumber
+      ? await prisma.bankAccountShopMapping.findUnique({
+          where: { accountNumber: data.accountNumber },
+          select: { shopId: true },
+        })
+      : null;
+    const shopId = mapping?.shopId ?? null;
+
     return prisma.bankTransaction.upsert({
       where: { externalId },
-      create: { externalId, ...data },
-      update: data,
+      create: { externalId, shopId, ...data },
+      update: { shopId, ...data },
     });
   },
 
   /** Tổng tiền CHUYỂN VÀO (IN) trong ngày VN + danh sách giao dịch gần đây. */
   async today(date: Date = new Date()) {
     const { start, end } = dayRange(date);
+    // BankTransaction không nằm trong allowlist tự động scope (webhook cần
+    // ghi shopId thủ công ở trên) nên ở đây phải tự lọc theo tiệm đang đăng nhập.
     const items = await prisma.bankTransaction.findMany({
-      where: { direction: 'IN', transactionAt: { gte: start, lte: end } },
+      where: { direction: 'IN', transactionAt: { gte: start, lte: end }, shopId: getCurrentShopId() },
       orderBy: { transactionAt: 'desc' },
       take: 50,
     });

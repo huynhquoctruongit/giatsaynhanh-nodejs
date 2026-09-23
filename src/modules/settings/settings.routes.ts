@@ -8,7 +8,7 @@ import { updateSettingsSchema } from '../../helpers/validators/settings.schema';
 const router = Router();
 
 // Public: thông tin tiệm cho landing/booking (không cần đăng nhập) — phải đặt TRƯỚC authStaff
-router.get('/public', settingsController.getPublic);
+router.get('/public/:shopSlug', settingsController.getPublic);
 
 router.use(authStaff);
 

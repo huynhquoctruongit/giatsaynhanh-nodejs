@@ -7,6 +7,7 @@ export const toPublicUser = (user: User) => ({
   email: user.email,
   name: user.name,
   phone: user.phone,
+  shopId: user.shopId,
   role: user.role as UserRole,
   permissions: parsePermissionMap(user.permissions),
   orderViewTimeLimit: user.orderViewTimeLimit,

@@ -1,4 +1,5 @@
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { ScanAction } from '../../helpers/enums';
 
 interface LogInput {
@@ -23,6 +24,7 @@ export const scanHistoryService = {
   async log(input: LogInput) {
     return prisma.scanHistory.create({
       data: {
+        shopId: getCurrentShopId(),
         orderId: input.orderId,
         userId: input.userId ?? null,
         action: input.action as ScanAction,

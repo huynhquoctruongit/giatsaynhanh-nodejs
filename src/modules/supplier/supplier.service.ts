@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError } from '../../helpers/utils/errors';
 import type {
   CreateSupplierInput,
@@ -56,7 +57,7 @@ export const supplierService = {
   },
 
   async create(input: CreateSupplierInput) {
-    return prisma.supplier.create({ data: input });
+    return prisma.supplier.create({ data: { ...input, shopId: getCurrentShopId() } });
   },
 
   async update(id: string, input: UpdateSupplierInput) {

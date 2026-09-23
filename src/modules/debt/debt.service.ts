@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError } from '../../helpers/utils/errors';
 import type {
   CreateCustomerDebtInput,
@@ -51,7 +52,7 @@ export const debtService = {
     const customer = await prisma.customer.findUnique({ where: { id: input.customerId } });
     if (!customer) throw new NotFoundError('Customer not found');
     return prisma.customerDebt.create({
-      data: input,
+      data: { ...input, shopId: getCurrentShopId() },
       include: { customer: { select: { id: true, name: true, phone: true } } },
     });
   },
@@ -124,7 +125,7 @@ export const debtService = {
     const supplier = await prisma.supplier.findUnique({ where: { id: input.supplierId } });
     if (!supplier) throw new NotFoundError('Supplier not found');
     return prisma.supplierDebt.create({
-      data: input,
+      data: { ...input, shopId: getCurrentShopId() },
       include: { supplier: { select: { id: true, name: true, phone: true } } },
     });
   },

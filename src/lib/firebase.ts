@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import type { DB } from '../config/prisma';
 
 let initialized = false;
 
@@ -45,8 +46,8 @@ export async function sendPush(
   }
 }
 
-/** Lấy FCM token của tất cả user đang active */
-export async function getActiveTokens(prisma: import('@prisma/client').PrismaClient): Promise<string[]> {
+/** Lấy FCM token của tất cả user đang active (trong đúng tenant context hiện tại) */
+export async function getActiveTokens(prisma: DB): Promise<string[]> {
   const users = await prisma.user.findMany({
     where: { isActive: true, fcmToken: { not: null } },
     select: { fcmToken: true },

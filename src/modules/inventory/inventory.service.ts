@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
 import type {
   CreateInventoryItemInput,
@@ -51,7 +52,7 @@ export const inventoryService = {
   },
 
   async createItem(input: CreateInventoryItemInput) {
-    return prisma.inventoryItem.create({ data: input });
+    return prisma.inventoryItem.create({ data: { ...input, shopId: getCurrentShopId() } });
   },
 
   async updateItem(id: string, input: UpdateInventoryItemInput) {
@@ -110,6 +111,7 @@ export const inventoryService = {
           unitPrice: input.unitPrice,
           note: input.note,
           createdById,
+          shopId: getCurrentShopId(),
         },
         include: {
           item: { select: { id: true, name: true, unit: true, quantity: true } },

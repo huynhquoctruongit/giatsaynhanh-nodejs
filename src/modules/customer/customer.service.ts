@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError, BadRequestError } from '../../helpers/utils/errors';
 import type {
   CreateCustomerInput,
@@ -56,13 +57,15 @@ export const customerService = {
     // Phone rỗng → null để nhiều khách không SĐT không đụng ràng buộc @unique
     const phone = input.phone?.trim() ? input.phone.trim() : null;
     const name = input.name.trim();
-    // Chặn trùng tên CHÍNH XÁC (nhân viên hay lỡ tạo trùng)
-    const dup = await prisma.customer.findUnique({ where: { name } });
+    // Chặn trùng tên CHÍNH XÁC (nhân viên hay lỡ tạo trùng), trong phạm vi tiệm hiện tại
+    const dup = await prisma.customer.findFirst({ where: { name } });
     if (dup) {
       throw new BadRequestError(`Đã có khách hàng tên "${name}". Không thể tạo trùng tên.`);
     }
     try {
-      return await prisma.customer.create({ data: { ...input, name, phone } });
+      return await prisma.customer.create({
+        data: { ...input, name, phone, shopId: getCurrentShopId() },
+      });
     } catch (e) {
       // Chốt chặn cuối từ unique index của DB (phòng khi 2 request chạy song song)
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -82,7 +85,7 @@ export const customerService = {
       const name = input.name.trim();
       data.name = name;
       // Nếu đổi tên trùng với khách KHÁC → chặn
-      const dup = await prisma.customer.findUnique({ where: { name } });
+      const dup = await prisma.customer.findFirst({ where: { name } });
       if (dup && dup.id !== id) {
         throw new BadRequestError(`Đã có khách hàng tên "${name}". Không thể đổi trùng tên.`);
       }

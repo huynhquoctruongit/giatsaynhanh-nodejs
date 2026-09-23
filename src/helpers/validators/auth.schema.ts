@@ -4,6 +4,9 @@ export const loginSchema = z.object({
   body: z.object({
     email: z.string().email(),
     password: z.string().min(6),
+    // Chỉ cần khi email trùng ở nhiều tiệm (hiếm) — client gửi lại sau khi
+    // nhận 409 {needsShopSelection, shops} ở lần login đầu.
+    shopId: z.string().uuid().optional(),
   }),
 });
 

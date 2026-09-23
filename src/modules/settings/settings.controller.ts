@@ -8,8 +8,8 @@ export const settingsController = {
     res.json({ success: true, data });
   }),
 
-  getPublic: asyncHandler(async (_req: Request, res: Response) => {
-    const data = await settingsService.getPublic();
+  getPublic: asyncHandler(async (req: Request, res: Response) => {
+    const data = await settingsService.getPublicBySlug(req.params.shopSlug);
     res.json({ success: true, data });
   }),
 

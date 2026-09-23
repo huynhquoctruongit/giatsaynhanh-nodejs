@@ -16,9 +16,56 @@ datasource db {
 // NOTE: Giữ status/role/action ở String để dễ tương thích migration cũ.
 // Enum TS ở src/helpers/enums/index.ts làm single source of truth.
 
+// Superadmin quản lý toàn bộ tiệm (tạo tiệm mới, tạo tài khoản admin đầu tiên
+// cho tiệm) — tách biệt hoàn toàn khỏi User/shopId/tenant-context, KHÔNG nằm
+// trong TENANT_MODELS (src/config/prisma.ts), luôn truy cập qua prismaUnscoped.
+model PlatformAdmin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// Multi-tenant: 1 Shop = 1 tiệm giặt sấy. Mọi model nghiệp vụ đều gắn shopId
+// và được tự động scope qua Prisma Client Extension (src/config/prisma.ts) +
+// AsyncLocalStorage (src/helpers/context/tenant-context.ts) — KHÔNG tự thêm
+// where/data shopId thủ công trong service, extension đã lo việc đó.
+model Shop {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique // dùng cho URL công khai web-laundry: /<slug>, /<slug>/dat-don
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users               User[]
+  customers           Customer[]
+  products            Product[]
+  orders              Order[]
+  bookings            Booking[]
+  bookingItems        BookingItem[]
+  orderItems          OrderItem[]
+  scanHistories       ScanHistory[]
+  suppliers           Supplier[]
+  transactions        Transaction[]
+  customerDebts       CustomerDebt[]
+  supplierDebts       SupplierDebt[]
+  inventoryItems      InventoryItem[]
+  inventoryLogs       InventoryLog[]
+  shifts              Shift[]
+  shiftAttendances    ShiftAttendance[]
+  settings            ShopSettings?
+  bankTransactions    BankTransaction[]
+  bankAccountMappings BankAccountShopMapping[]
+}
+
 model User {
   id                 String   @id @default(uuid())
-  email              String   @unique
+  email              String
   password           String
   name               String
   phone              String?
@@ -30,6 +77,9 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   orders         Order[]           @relation("CreatedOrders")
   assignedOrders Order[]           @relation("AssignedOrders")
   scanHistories  ScanHistory[]
@@ -37,22 +87,32 @@ model User {
   inventoryLogs  InventoryLog[]
   openedShifts   Shift[]           @relation("OpenedShifts")
   attendances    ShiftAttendance[]
+
+  // Email không còn unique toàn cục — 2 tiệm khác nhau được phép dùng trùng
+  // email (mỗi tiệm là 1 khách hàng thương mại độc lập của bạn).
+  @@unique([shopId, email])
+  @@index([shopId])
 }
 
 model Customer {
   id        String   @id @default(uuid())
-  name      String   @unique // KHÔNG cho trùng tên (chính xác) — chặn nhân viên lỡ tạo trùng
+  name      String   // KHÔNG cho trùng tên trong cùng 1 tiệm (chính xác) — chặn nhân viên lỡ tạo trùng
   phone     String?  // SĐT không bắt buộc & KHÔNG unique (cho phép trùng / để trống)
   address   String?
   note      String?
-  qrToken   String   @unique @default(uuid())
+  qrToken   String   @unique @default(uuid()) // global unique: trang tra cứu công khai /q/[token] suy ra shop từ token, không cần biết trước tiệm nào
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
 
   orders   Order[]
   bookings Booking[]
   debts    CustomerDebt[]
 
+  @@unique([shopId, name])
+  @@index([shopId])
   @@index([qrToken])
 }
 
@@ -72,16 +132,20 @@ model Product {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   orderItems OrderItem[]
 
+  @@index([shopId])
   @@index([isActive])
   @@index([sortOrder])
 }
 
 model Order {
   id             String    @id @default(uuid())
-  code           String    @unique
-  qrToken        String    @unique
+  code           String
+  qrToken        String    @unique // global unique: cùng lý do như Customer.qrToken
   status         String    @default("CREATED") // CREATED | RECEIVED | WASHING | READY | DELIVERED | CANCELLED
   totalAmount    Decimal   @default(0) @db.Decimal(14, 2)
   discountAmount Decimal   @default(0) @db.Decimal(12, 2)
@@ -94,6 +158,9 @@ model Order {
   readyAt        DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
@@ -110,6 +177,8 @@ model Order {
   bookingsAsSource   Booking[] @relation("BookingSource")
   bookingFromConvert Booking?  @relation("BookingConverted")
 
+  @@unique([shopId, code])
+  @@index([shopId])
   @@index([status])
   @@index([customerId])
   @@index([createdAt])
@@ -119,7 +188,7 @@ model Order {
 
 model Booking {
   id               String   @id @default(uuid())
-  code             String   @unique // BK-yyyymmdd-XXXXX
+  code             String   // BK-yyyymmdd-XXXXX
   status           String   @default("PENDING") // PENDING | CONFIRMED | CANCELLED | CONVERTED
   customerId       String
   customer         Customer @relation(fields: [customerId], references: [id])
@@ -135,8 +204,13 @@ model Booking {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   items BookingItem[]
 
+  @@unique([shopId, code])
+  @@index([shopId])
   @@index([status])
   @@index([customerId])
   @@index([createdAt])
@@ -151,8 +225,12 @@ model BookingItem {
   weight    Decimal? @db.Decimal(8, 3)
   unitPrice Decimal  @default(0) @db.Decimal(12, 2)
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
+  @@index([shopId])
   @@index([bookingId])
 }
 
@@ -165,9 +243,13 @@ model OrderItem {
   weight    Decimal? @db.Decimal(8, 3)
   unitPrice Decimal  @default(0) @db.Decimal(12, 2)
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
 
+  @@index([shopId])
   @@index([orderId])
   @@index([productId])
 }
@@ -182,9 +264,13 @@ model ScanHistory {
   meta      String?  // JSON serialized
   scannedAt DateTime @default(now())
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   user  User? @relation(fields: [userId], references: [id])
 
+  @@index([shopId])
   @@index([orderId])
   @@index([userId])
 }
@@ -200,7 +286,12 @@ model Supplier {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   debts SupplierDebt[]
+
+  @@index([shopId])
 }
 
 model Transaction {
@@ -216,6 +307,10 @@ model Transaction {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@index([shopId])
   @@index([type])
   @@index([date])
   @@index([createdById])
@@ -235,6 +330,10 @@ model CustomerDebt {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@index([shopId])
   @@index([customerId])
   @@index([isPaid])
 }
@@ -253,6 +352,10 @@ model SupplierDebt {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@index([shopId])
   @@index([supplierId])
   @@index([isPaid])
 }
@@ -269,8 +372,12 @@ model InventoryItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   logs InventoryLog[]
 
+  @@index([shopId])
   @@index([isActive])
 }
 
@@ -286,6 +393,10 @@ model InventoryLog {
   createdBy   User          @relation(fields: [createdById], references: [id])
   createdAt   DateTime      @default(now())
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@index([shopId])
   @@index([itemId])
   @@index([createdAt])
 }
@@ -302,8 +413,12 @@ model Shift {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
   attendances ShiftAttendance[]
 
+  @@index([shopId])
   @@index([isOpen])
   @@index([createdAt])
 }
@@ -319,15 +434,21 @@ model ShiftAttendance {
   note      String?
   createdAt DateTime  @default(now())
 
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@index([shopId])
   @@index([shiftId])
   @@index([userId])
 }
 
 // Giao dịch ngân hàng nhận từ GPM Pay (webhook + đối soát REST).
 // Chỉ để HIỂN THỊ tiền chuyển khoản — KHÔNG dính vào logic doanh thu/đơn hàng.
+// Webhook không có JWT nên shopId được suy ra qua BankAccountShopMapping
+// (accountNumber -> shopId) thay vì qua AsyncLocalStorage như các model khác.
 model BankTransaction {
   id             String   @id @default(uuid())
-  externalId     String   @unique // id giao dịch từ GPM Pay → chống trùng (webhook + REST)
+  externalId     String   @unique // id giao dịch từ GPM Pay → chống trùng (webhook + REST), global vì id do GPM Pay cấp
   gateway        String? // ngân hàng, vd "MBBank"
   accountNumber  String? // STK nhận tiền
   amount         Decimal  @db.Decimal(14, 2)
@@ -340,8 +461,20 @@ model BankTransaction {
   transactionAt  DateTime // thời điểm giao dịch (từ GPM Pay)
   createdAt      DateTime @default(now())
 
+  shopId String? // null nếu accountNumber chưa được map vào tiệm nào (cần xử lý thủ công)
+  shop   Shop?   @relation(fields: [shopId], references: [id])
+
+  @@index([shopId])
   @@index([transactionAt])
   @@index([direction])
+}
+
+// Map STK ngân hàng -> tiệm, dùng để resolve shopId cho BankTransaction webhook (không có JWT).
+model BankAccountShopMapping {
+  id            String @id @default(uuid())
+  accountNumber String @unique
+  shopId        String
+  shop          Shop   @relation(fields: [shopId], references: [id])
 }
 
 model ShopSettings {
@@ -375,4 +508,7 @@ model ShopSettings {
   allowNoShiftOrder    Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+
+  shopId String @unique
+  shop   Shop   @relation(fields: [shopId], references: [id])
 }

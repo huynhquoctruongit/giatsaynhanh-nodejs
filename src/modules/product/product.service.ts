@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError } from '../../helpers/utils/errors';
 import type {
   CreateProductInput,
@@ -51,7 +52,7 @@ export const productService = {
     const max = await prisma.product.aggregate({ _max: { sortOrder: true } });
     const sortOrder = (max._max.sortOrder ?? -1) + 1;
     return prisma.product.create({
-      data: { ...rest, sortOrder, wholesaleTiers: toJsonField(wholesaleTiers) },
+      data: { ...rest, sortOrder, shopId: getCurrentShopId(), wholesaleTiers: toJsonField(wholesaleTiers) },
     });
   },
 

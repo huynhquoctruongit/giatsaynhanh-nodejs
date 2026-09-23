@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { authStaff, requireRole } from './middlewares/auth';
+import { UserRole } from './helpers/enums';
 import { authRouter } from './modules/auth/auth.routes';
 import { bankRouter } from './modules/bank/bank.routes';
 import { bookingRouter } from './modules/booking/booking.routes';
@@ -7,6 +9,7 @@ import { debtRouter } from './modules/debt/debt.routes';
 import { financeRouter } from './modules/finance/finance.routes';
 import { inventoryRouter } from './modules/inventory/inventory.routes';
 import { orderRouter } from './modules/order/order.routes';
+import { platformRouter } from './modules/platform/platform.routes';
 import { productRouter } from './modules/product/product.routes';
 import { qrRouter } from './modules/qr/qr.routes';
 import { reportRouter } from './modules/report/report.routes';
@@ -21,8 +24,8 @@ router.get('/health', (_req, res) => {
   res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
 });
 
-// Debug FCM — gửi test push đến tất cả token
-router.get('/debug/fcm/test-push', async (_req, res) => {
+// Debug FCM — chỉ ADMIN (trước đây public, đã bị lộ tên+fcmToken toàn bộ user).
+router.get('/debug/fcm/test-push', authStaff, requireRole(UserRole.ADMIN), async (_req, res) => {
   try {
     const { prisma } = await import('./config/prisma.js');
     const { sendPush, getActiveTokens } = await import('./lib/firebase.js');
@@ -39,7 +42,7 @@ router.get('/debug/fcm/test-push', async (_req, res) => {
 });
 
 // Debug FCM — kiểm tra Firebase init + token đã lưu
-router.get('/debug/fcm', async (_req, res) => {
+router.get('/debug/fcm', authStaff, requireRole(UserRole.ADMIN), async (_req, res) => {
   try {
     const { prisma } = await import('./config/prisma.js');
     const users = await prisma.user.findMany({
@@ -74,6 +77,7 @@ router.use('/debt', debtRouter);
 router.use('/finance', financeRouter);
 router.use('/inventory', inventoryRouter);
 router.use('/orders', orderRouter);
+router.use('/platform', platformRouter);
 router.use('/products', productRouter);
 router.use('/qr', qrRouter);
 router.use('/report', reportRouter);

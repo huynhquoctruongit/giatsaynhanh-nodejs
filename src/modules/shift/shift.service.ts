@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
 import type {
   CreateShiftInput,
@@ -80,6 +81,7 @@ export const shiftService = {
     return prisma.$transaction(async (tx) => {
       const shift = await tx.shift.create({
         data: {
+          shopId: getCurrentShopId(),
           name: input.name,
           note: input.note,
           startTime: new Date(),
@@ -91,6 +93,7 @@ export const shiftService = {
 
       await tx.shiftAttendance.create({
         data: {
+          shopId: getCurrentShopId(),
           shiftId: shift.id,
           userId: openedById,
           checkIn: new Date(),
@@ -125,6 +128,7 @@ export const shiftService = {
 
     return prisma.shiftAttendance.create({
       data: {
+        shopId: getCurrentShopId(),
         shiftId,
         userId: input.userId,
         checkIn: input.checkIn ?? new Date(),
