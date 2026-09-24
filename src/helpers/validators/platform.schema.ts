@@ -30,6 +30,22 @@ export const createShopAdminSchema = z.object({
   }),
 });
 
+export const shopIdParamSchema = z.object({
+  params: z.object({
+    shopId: z.string().uuid(),
+  }),
+});
+
+export const setWebhookSecretSchema = z.object({
+  body: z.object({
+    webhookSecret: z.string().min(1),
+  }),
+  params: z.object({
+    shopId: z.string().uuid(),
+  }),
+});
+
 export type PlatformLoginInput = z.infer<typeof platformLoginSchema>['body'];
 export type CreateShopInput = z.infer<typeof createShopSchema>['body'];
 export type CreateShopAdminInput = z.infer<typeof createShopAdminSchema>['body'];
+export type SetWebhookSecretInput = z.infer<typeof setWebhookSecretSchema>['body'];

@@ -28,8 +28,11 @@ export const bankService = {
    * Định dạng chuẩn (Stripe-style): header `t=<unix>,v1=<hex>`, ký `${t}.${rawBody}`.
    * Fallback: header là hex thuần → ký trực tiếp rawBody (phòng khi GPM Pay đơn giản hơn).
    */
-  verifyWebhook(rawBody: Buffer | undefined, signatureHeader: string | undefined): boolean {
-    const secret = env.gpmpay.webhookSecret;
+  verifyWebhook(
+    rawBody: Buffer | undefined,
+    signatureHeader: string | undefined,
+    secret: string | null | undefined = env.gpmpay.webhookSecret,
+  ): boolean {
     if (!secret || !rawBody || !signatureHeader) return false;
 
     const parts = signatureHeader.split(',').map((s) => s.trim());
@@ -60,7 +63,7 @@ export const bankService = {
    * Chuẩn hoá 1 giao dịch GPM Pay (webhook hoặc REST) rồi upsert theo externalId.
    * Idempotent: gửi lại cùng giao dịch không tạo bản trùng.
    */
-  async ingest(raw: AnyRecord) {
+  async ingest(raw: AnyRecord, forcedShopId?: string | null) {
     const externalId = str(pick(raw, 'id', 'referenceCode', 'transactionId'));
     if (!externalId) return null;
 
@@ -87,15 +90,22 @@ export const bankService = {
       transactionAt: isNaN(transactionAt.getTime()) ? new Date() : transactionAt,
     };
 
-    // Webhook không có JWT → suy ra shopId qua số tài khoản nhận tiền đã cấu
-    // hình sẵn lúc onboard tiệm. Không map được thì để null (chưa gán tiệm).
-    const mapping = data.accountNumber
-      ? await prisma.bankAccountShopMapping.findUnique({
-          where: { accountNumber: data.accountNumber },
-          select: { shopId: true },
-        })
-      : null;
-    const shopId = mapping?.shopId ?? null;
+    // forcedShopId: route webhook theo-token (Phase 8) đã biết chắc shopId từ
+    // URL, khỏi tra mapping. Ngược lại (route cũ, REST sync) suy ra shopId qua
+    // số tài khoản nhận tiền đã cấu hình sẵn lúc onboard tiệm — không map được
+    // thì để null (chưa gán tiệm).
+    let shopId: string | null;
+    if (forcedShopId !== undefined) {
+      shopId = forcedShopId;
+    } else {
+      const mapping = data.accountNumber
+        ? await prisma.bankAccountShopMapping.findUnique({
+            where: { accountNumber: data.accountNumber },
+            select: { shopId: true },
+          })
+        : null;
+      shopId = mapping?.shopId ?? null;
+    }
 
     return prisma.bankTransaction.upsert({
       where: { externalId },

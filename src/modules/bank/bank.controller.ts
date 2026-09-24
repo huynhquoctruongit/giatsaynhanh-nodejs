@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../../helpers/utils/async-handler';
 import { env } from '../../config/env';
+import { prismaUnscoped } from '../../config/prisma';
 import { bankService } from './bank.service';
 
 export const bankController = {
@@ -36,6 +37,61 @@ export const bankController = {
     }
 
     res.json({ success: true, data: { received: true } });
+  }),
+
+  /**
+   * Webhook GPM Pay riêng cho 1 tiệm (Phase 8) — tiệm tự đăng ký tài khoản
+   * GPM Pay riêng, có secret riêng. `token` tra thẳng ra shopId, verify bằng
+   * đúng secret của tiệm đó. Song song route `webhook` cũ, không thay thế.
+   */
+  webhookByToken: asyncHandler(async (req: Request, res: Response) => {
+    const shop = await prismaUnscoped.shop.findUnique({
+      where: { webhookToken: req.params.token },
+      select: { id: true, isActive: true, webhookSecret: true },
+    });
+    if (!shop || !shop.isActive) {
+      res.status(404).json({ success: false, error: 'Not found' });
+      return;
+    }
+    if (!shop.webhookSecret) {
+      res.status(503).json({ success: false, error: 'Webhook secret chưa cấu hình' });
+      return;
+    }
+
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    const signature =
+      req.header('X-GPMPay-Signature') ??
+      req.header('x-gpmpay-signature') ??
+      req.header('X-Signature') ??
+      undefined;
+
+    if (!bankService.verifyWebhook(rawBody, signature, shop.webhookSecret)) {
+      console.warn('[gpmpay] webhook (per-shop) chữ ký không hợp lệ', { shopId: shop.id, signature });
+      res.status(401).json({ success: false, error: 'Invalid signature' });
+      return;
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const payload = (body?.data as Record<string, unknown>) ?? body;
+    const list = Array.isArray(payload) ? payload : [payload];
+    for (const item of list) {
+      await bankService.ingest(item as Record<string, unknown>, shop.id);
+    }
+
+    res.json({ success: true, data: { received: true } });
+  }),
+
+  /** GPM Pay ping GET để kiểm tra URL riêng của tiệm sống trước khi lưu webhook. */
+  pingByToken: asyncHandler(async (req: Request, res: Response) => {
+    const shop = await prismaUnscoped.shop.findUnique({
+      where: { webhookToken: req.params.token },
+      select: { isActive: true },
+    });
+    if (!shop || !shop.isActive) {
+      res.status(404).json({ success: false, error: 'Not found' });
+      return;
+    }
+    res.status(200).json({ ok: true });
   }),
 
   /** Tổng + danh sách chuyển khoản hôm nay (staff). */

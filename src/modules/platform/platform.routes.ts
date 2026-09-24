@@ -6,6 +6,8 @@ import {
   platformLoginSchema,
   createShopSchema,
   createShopAdminSchema,
+  shopIdParamSchema,
+  setWebhookSecretSchema,
 } from '../../helpers/validators/platform.schema';
 
 const router = Router();
@@ -19,6 +21,16 @@ router.post(
   '/shops/:shopId/admins',
   validate(createShopAdminSchema),
   platformController.createShopAdmin,
+);
+router.post(
+  '/shops/:shopId/webhook/token',
+  validate(shopIdParamSchema),
+  platformController.rotateWebhookToken,
+);
+router.put(
+  '/shops/:shopId/webhook/secret',
+  validate(setWebhookSecretSchema),
+  platformController.setWebhookSecret,
 );
 
 export { router as platformRouter };

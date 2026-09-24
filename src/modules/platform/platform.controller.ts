@@ -23,4 +23,14 @@ export const platformController = {
     const data = await platformService.createShopAdmin(req.params.shopId, req.body);
     res.status(HTTP_STATUS.CREATED).json({ success: true, data });
   }),
+
+  rotateWebhookToken: asyncHandler(async (req: Request, res: Response) => {
+    const data = await platformService.rotateWebhookToken(req.params.shopId);
+    res.json({ success: true, data });
+  }),
+
+  setWebhookSecret: asyncHandler(async (req: Request, res: Response) => {
+    const data = await platformService.setWebhookSecret(req.params.shopId, req.body);
+    res.json({ success: true, data });
+  }),
 };
