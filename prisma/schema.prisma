@@ -504,6 +504,7 @@ model ShopSettings {
   invoiceShowQR           Boolean  @default(true)
   invoiceShowDebt         Boolean  @default(true)
   openingHours            String?  // e.g. "6h30 - 22h00"
+  invoiceNote             String?  // ghi chú cuối hoá đơn, riêng theo từng tiệm
   labelTemplate           String?
   labelFontSize           Int      @default(12) // 10–20
   loyaltyEnabled       Boolean  @default(false)

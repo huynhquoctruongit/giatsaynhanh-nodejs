@@ -20,6 +20,7 @@ export const updateSettingsSchema = z.object({
     invoiceShowQR: z.boolean().optional(),
     invoiceShowDebt: z.boolean().optional(),
     openingHours: z.string().nullable().optional(),
+    invoiceNote: z.string().nullable().optional(),
     labelTemplate: z.string().nullable().optional(),
     labelFontSize: z.coerce.number().int().min(10).max(72).optional(),
     loyaltyEnabled: z.boolean().optional(),
