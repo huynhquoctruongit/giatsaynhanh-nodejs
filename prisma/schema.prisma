@@ -505,6 +505,9 @@ model ShopSettings {
   invoiceShowDebt         Boolean  @default(true)
   openingHours            String?  // e.g. "6h30 - 22h00"
   invoiceNote             String?  // ghi chú cuối hoá đơn, riêng theo từng tiệm
+  bankBin                 String?  // mã BIN ngân hàng theo chuẩn Napas, vd Vietcombank = 970436
+  bankAccountNumber       String?
+  bankAccountName         String?  // tên chủ tài khoản, không dấu, IN HOA theo chuẩn VietQR
   labelTemplate           String?
   labelFontSize           Int      @default(12) // 10–20
   loyaltyEnabled       Boolean  @default(false)
