@@ -17,6 +17,7 @@ import { settingsRouter } from './modules/settings/settings.routes';
 import { shiftRouter } from './modules/shift/shift.routes';
 import { staffRouter } from './modules/staff/staff.routes';
 import { supplierRouter } from './modules/supplier/supplier.routes';
+import { timesheetRouter } from './modules/timesheet/timesheet.routes';
 
 const router = Router();
 
@@ -85,5 +86,6 @@ router.use('/settings', settingsRouter);
 router.use('/shifts', shiftRouter);
 router.use('/staff', staffRouter);
 router.use('/suppliers', supplierRouter);
+router.use('/timesheet', timesheetRouter);
 
 export { router as apiRouter };

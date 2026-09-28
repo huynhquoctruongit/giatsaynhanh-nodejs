@@ -86,6 +86,7 @@ model Shop {
   inventoryLogs       InventoryLog[]
   shifts              Shift[]
   shiftAttendances    ShiftAttendance[]
+  timeEntries         TimeEntry[]
   settings            ShopSettings?
   bankTransactions    BankTransaction[]
   bankAccountMappings BankAccountShopMapping[]
@@ -115,6 +116,7 @@ model User {
   inventoryLogs  InventoryLog[]
   openedShifts   Shift[]           @relation("OpenedShifts")
   attendances    ShiftAttendance[]
+  timeEntries    TimeEntry[]
 
   // Email không còn unique toàn cục — 2 tiệm khác nhau được phép dùng trùng
   // email (mỗi tiệm là 1 khách hàng thương mại độc lập của bạn).
@@ -449,6 +451,24 @@ model Shift {
   @@index([shopId])
   @@index([isOpen])
   @@index([createdAt])
+}
+
+// Chấm công cá nhân: nhân viên tự bấm vào ca / kết ca (nút nổi trên app).
+// Độc lập với Shift (ca cửa hàng, dùng cho đơn hàng). Lưu giờ bấm thật;
+// làm tròn 30 phút + tính lương ở helpers/utils/timesheet.ts.
+model TimeEntry {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  checkIn   DateTime  @default(now())
+  checkOut  DateTime?
+  createdAt DateTime  @default(now())
+
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@index([shopId])
+  @@index([userId, checkIn])
 }
 
 model ShiftAttendance {

@@ -33,6 +33,7 @@ const TENANT_MODELS = new Set([
   'InventoryLog',
   'Shift',
   'ShiftAttendance',
+  'TimeEntry',
 ]);
 // ShopSettings (khoá 1-1 theo shopId) và BankTransaction/BankAccountShopMapping
 // (webhook không có JWT) được scope thủ công ở service riêng của chúng — cố ý
