@@ -54,8 +54,23 @@ export const activateSubscriptionSchema = z.object({
   }),
 });
 
+export const updatePlanConfigSchema = z.object({
+  body: z.object({
+    name: z.string().trim().min(1).max(100),
+    period: z.string().trim().min(1).max(50),
+    description: z.string().trim().max(300),
+    price: z.number().int().min(0),
+    features: z.array(z.string().trim().min(1).max(200)).max(20),
+    popular: z.boolean(),
+  }),
+  params: z.object({
+    plan: z.enum(['SIX_MONTHS', 'ONE_YEAR', 'THREE_YEARS']),
+  }),
+});
+
 export type PlatformLoginInput = z.infer<typeof platformLoginSchema>['body'];
 export type CreateShopInput = z.infer<typeof createShopSchema>['body'];
 export type CreateShopAdminInput = z.infer<typeof createShopAdminSchema>['body'];
 export type SetWebhookSecretInput = z.infer<typeof setWebhookSecretSchema>['body'];
+export type UpdatePlanConfigInput = z.infer<typeof updatePlanConfigSchema>['body'];
 export type ActivateSubscriptionInput = z.infer<typeof activateSubscriptionSchema>['body'];

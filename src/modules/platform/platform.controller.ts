@@ -34,6 +34,16 @@ export const platformController = {
     res.json({ success: true, data });
   }),
 
+  listPlanConfigs: asyncHandler(async (_req: Request, res: Response) => {
+    const data = await platformService.listPlanConfigs();
+    res.json({ success: true, data });
+  }),
+
+  updatePlanConfig: asyncHandler(async (req: Request, res: Response) => {
+    const data = await platformService.updatePlanConfig(req.params.plan, req.body);
+    res.json({ success: true, data });
+  }),
+
   activateSubscription: asyncHandler(async (req: Request, res: Response) => {
     const data = await platformService.activateSubscription(req.params.shopId, req.body.plan);
     res.json({ success: true, data });

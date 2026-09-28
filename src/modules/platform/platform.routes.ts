@@ -9,11 +9,15 @@ import {
   shopIdParamSchema,
   setWebhookSecretSchema,
   activateSubscriptionSchema,
+  updatePlanConfigSchema,
 } from '../../helpers/validators/platform.schema';
 
 const router = Router();
 
 router.post('/login', validate(platformLoginSchema), platformController.login);
+
+// Public: bảng giá trên landing page — phải đặt TRƯỚC authPlatform
+router.get('/public/plans', platformController.listPlanConfigs);
 
 router.use(authPlatform);
 router.get('/shops', platformController.listShops);
@@ -38,5 +42,7 @@ router.patch(
   validate(activateSubscriptionSchema),
   platformController.activateSubscription,
 );
+router.get('/plans', platformController.listPlanConfigs);
+router.put('/plans/:plan', validate(updatePlanConfigSchema), platformController.updatePlanConfig);
 
 export { router as platformRouter };

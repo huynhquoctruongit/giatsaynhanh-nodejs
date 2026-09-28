@@ -28,6 +28,22 @@ model PlatformAdmin {
   createdAt DateTime @default(now())
 }
 
+// Cấu hình giá + lợi ích của các gói trả phí (hiển thị ở bảng giá landing page),
+// platform admin chỉnh ở /platform/plans. Toàn hệ thống, không theo tiệm —
+// không nằm trong TENANT_MODELS, luôn truy cập qua prismaUnscoped.
+// Số ngày của mỗi gói vẫn cố định trong code (helpers/utils/subscription.ts).
+model SubscriptionPlanConfig {
+  plan        String   @id // SIX_MONTHS | ONE_YEAR | THREE_YEARS
+  name        String
+  period      String // nhãn hiển thị sau giá, vd "/năm"
+  description String   @default("")
+  price       Int
+  features    String[]
+  popular     Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}
+
 // Multi-tenant: 1 Shop = 1 tiệm giặt sấy. Mọi model nghiệp vụ đều gắn shopId
 // và được tự động scope qua Prisma Client Extension (src/config/prisma.ts) +
 // AsyncLocalStorage (src/helpers/context/tenant-context.ts) — KHÔNG tự thêm

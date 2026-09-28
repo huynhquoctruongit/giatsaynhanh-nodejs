@@ -10,6 +10,7 @@ import type {
   CreateShopInput,
   CreateShopAdminInput,
   SetWebhookSecretInput,
+  UpdatePlanConfigInput,
 } from '../../helpers/validators/platform.schema';
 
 const genWebhookToken = () => crypto.randomBytes(24).toString('hex');
@@ -51,6 +52,26 @@ export const platformService = {
         subscriptionEndsAt: trialEndsAt(),
         currentPlan: 'TRIAL',
       },
+    });
+  },
+
+  /** Giá + lợi ích các gói trả phí — dùng cho cả bảng giá public lẫn trang platform. */
+  listPlanConfigs() {
+    return prismaUnscoped.subscriptionPlanConfig.findMany({ orderBy: { sortOrder: 'asc' } });
+  },
+
+  async updatePlanConfig(plan: string, input: UpdatePlanConfigInput) {
+    const existed = await prismaUnscoped.subscriptionPlanConfig.findUnique({ where: { plan } });
+    if (!existed) throw new NotFoundError('Plan not found');
+    return prismaUnscoped.$transaction(async (tx) => {
+      // Chỉ 1 gói được gắn nhãn "Phổ biến nhất".
+      if (input.popular) {
+        await tx.subscriptionPlanConfig.updateMany({
+          where: { plan: { not: plan } },
+          data: { popular: false },
+        });
+      }
+      return tx.subscriptionPlanConfig.update({ where: { plan }, data: input });
     });
   },
 
