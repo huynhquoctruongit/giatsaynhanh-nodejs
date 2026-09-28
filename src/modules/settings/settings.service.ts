@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
   loyaltyEnabled: false,
   deliveryEnabled: false,
   allowNoShiftOrder: true,
+  bookingQrEnabled: true,
 };
 
 export const settingsService = {
@@ -21,10 +22,18 @@ export const settingsService = {
   // định danh bằng shopId @unique thay vì id) nên tự lọc/gán shopId thủ công ở đây.
   async get() {
     const shopId = getCurrentShopId();
-    const existing = await prisma.shopSettings.findUnique({ where: { shopId } });
-    if (existing) return existing;
+    const existing = await prisma.shopSettings.findUnique({
+      where: { shopId },
+      include: { shop: { select: { slug: true } } },
+    });
+    if (existing) {
+      const { shop, ...settings } = existing;
+      return { ...settings, shopSlug: shop.slug };
+    }
 
-    return prisma.shopSettings.create({ data: { ...DEFAULT_SETTINGS, shopId } });
+    const created = await prisma.shopSettings.create({ data: { ...DEFAULT_SETTINGS, shopId } });
+    const shop = await prisma.shop.findUniqueOrThrow({ where: { id: shopId }, select: { slug: true } });
+    return { ...created, shopSlug: shop.slug };
   },
 
   /**
@@ -46,14 +55,16 @@ export const settingsService = {
       address: s?.address ?? shop.address,
       website: s?.website,
       openingHours: s?.openingHours,
+      bookingQrEnabled: s?.bookingQrEnabled ?? true,
     };
   },
 
   async update(input: UpdateSettingsInput) {
     const existing = await this.get();
-    return prisma.shopSettings.update({
+    const updated = await prisma.shopSettings.update({
       where: { id: existing.id },
       data: input,
     });
+    return { ...updated, shopSlug: existing.shopSlug };
   },
 };

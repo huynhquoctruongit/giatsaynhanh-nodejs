@@ -517,6 +517,7 @@ model ShopSettings {
   bookingShippingFee   Decimal? @db.Decimal(10, 2) // phí ship cộng cho đơn booking khi dưới ngưỡng freeship
   freeShipThreshold    Decimal? @db.Decimal(12, 2) // tổng đơn >= ngưỡng này thì FREESHIP (0/null = luôn tính ship)
   allowNoShiftOrder    Boolean  @default(true)
+  bookingQrEnabled     Boolean  @default(true) // bật/tắt QR "đặt đơn tại cửa" theo từng tiệm
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

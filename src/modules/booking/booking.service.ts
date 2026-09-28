@@ -2,11 +2,12 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { BookingStatus } from '../../helpers/enums';
-import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../helpers/utils/errors';
 import { generateOrderCode } from '../../helpers/utils/order-code';
 import { generateQrToken } from '../../helpers/utils/qr';
 import { sendPush, getActiveTokens } from '../../lib/firebase';
 import { fmtVNTime } from '../../helpers/utils/notify-format';
+import { settingsService } from '../settings/settings.service';
 import type {
   ConvertBookingInput,
   CreateBookingFromQrInput,
@@ -50,6 +51,17 @@ const generateBookingCode = (): string => {
   return code.replace(/^LD-/, 'BK-');
 };
 
+// Chặn 3 entry-point tự phục vụ của khách (identify/prefill/tạo booking qua QR)
+// khi tiệm đã tắt tính năng "đặt lịch qua quét mã" ở Cài đặt.
+async function assertBookingQrEnabled() {
+  const settings = await settingsService.get();
+  if (!settings.bookingQrEnabled) {
+    throw new ForbiddenError(
+      'Tiệm hiện tạm khoá tính năng đặt đơn qua quét mã, vui lòng liên hệ trực tiếp với tiệm.',
+    );
+  }
+}
+
 export const bookingService = {
   /**
    * QR "đặt đơn tại cửa" (generic): nhận diện khách theo SĐT.
@@ -57,6 +69,7 @@ export const bookingService = {
    * Trả về qrToken của khách để FE lưu localStorage + chuyển vào flow /q/{token}.
    */
   async identifyCustomer(input: { phone: string; name?: string; address?: string }) {
+    await assertBookingQrEnabled();
     const phone = input.phone.trim();
     if (!phone) throw new BadRequestError('Vui lòng nhập số điện thoại');
     const name = input.name?.trim();
@@ -96,6 +109,7 @@ export const bookingService = {
   },
 
   async getQrPrefill(token: string) {
+    await assertBookingQrEnabled();
     const { customer, sourceOrder } = await resolveCustomerFromToken(token);
 
     const [activeOrders, services, hiddenProducts] = await Promise.all([
@@ -166,6 +180,7 @@ export const bookingService = {
   },
 
   async createFromQr(token: string, input: CreateBookingFromQrInput) {
+    await assertBookingQrEnabled();
     const { customer, sourceOrder } = await resolveCustomerFromToken(token);
 
     const customerId = customer.id;
