@@ -7,6 +7,7 @@ import { generateOrderCode } from '../../helpers/utils/order-code';
 import { generateQrToken } from '../../helpers/utils/qr';
 import { sendPush, getActiveTokens } from '../../lib/firebase';
 import { fmtVNTime } from '../../helpers/utils/notify-format';
+import { assertSubscriptionActive } from '../../helpers/utils/subscription';
 import { settingsService } from '../settings/settings.service';
 import type {
   ConvertBookingInput,
@@ -316,6 +317,9 @@ export const bookingService = {
     input: ConvertBookingInput,
     createdById?: string,
   ) {
+    const shop = await prisma.shop.findUniqueOrThrow({ where: { id: getCurrentShopId() } });
+    assertSubscriptionActive(shop.subscriptionEndsAt);
+
     const booking = await this.getById(id);
     if (booking.status === BookingStatus.CONVERTED) {
       throw new BadRequestError('Booking đã được chuyển thành đơn');

@@ -45,7 +45,17 @@ export const setWebhookSecretSchema = z.object({
   }),
 });
 
+export const activateSubscriptionSchema = z.object({
+  body: z.object({
+    plan: z.enum(['SIX_MONTHS', 'ONE_YEAR', 'THREE_YEARS']),
+  }),
+  params: z.object({
+    shopId: z.string().uuid(),
+  }),
+});
+
 export type PlatformLoginInput = z.infer<typeof platformLoginSchema>['body'];
 export type CreateShopInput = z.infer<typeof createShopSchema>['body'];
 export type CreateShopAdminInput = z.infer<typeof createShopAdminSchema>['body'];
 export type SetWebhookSecretInput = z.infer<typeof setWebhookSecretSchema>['body'];
+export type ActivateSubscriptionInput = z.infer<typeof activateSubscriptionSchema>['body'];

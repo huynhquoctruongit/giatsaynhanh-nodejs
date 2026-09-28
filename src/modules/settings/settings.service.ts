@@ -2,6 +2,7 @@ import { prisma, prismaUnscoped } from '../../config/prisma';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError } from '../../helpers/utils/errors';
 import { buildBookingQrUrl } from '../../helpers/utils/qr';
+import { daysRemaining } from '../../helpers/utils/subscription';
 import type { UpdateSettingsInput } from '../../helpers/validators/settings.schema';
 
 const DEFAULT_SETTINGS = {
@@ -25,16 +26,33 @@ export const settingsService = {
     const shopId = getCurrentShopId();
     const existing = await prisma.shopSettings.findUnique({
       where: { shopId },
-      include: { shop: { select: { slug: true } } },
+      include: { shop: { select: { slug: true, subscriptionEndsAt: true, currentPlan: true } } },
     });
     if (existing) {
       const { shop, ...settings } = existing;
-      return { ...settings, shopSlug: shop.slug, bookingQrUrl: buildBookingQrUrl(shop.slug) };
+      return {
+        ...settings,
+        shopSlug: shop.slug,
+        bookingQrUrl: buildBookingQrUrl(shop.slug),
+        subscriptionEndsAt: shop.subscriptionEndsAt,
+        currentPlan: shop.currentPlan,
+        subscriptionDaysRemaining: daysRemaining(shop.subscriptionEndsAt),
+      };
     }
 
     const created = await prisma.shopSettings.create({ data: { ...DEFAULT_SETTINGS, shopId } });
-    const shop = await prisma.shop.findUniqueOrThrow({ where: { id: shopId }, select: { slug: true } });
-    return { ...created, shopSlug: shop.slug, bookingQrUrl: buildBookingQrUrl(shop.slug) };
+    const shop = await prisma.shop.findUniqueOrThrow({
+      where: { id: shopId },
+      select: { slug: true, subscriptionEndsAt: true, currentPlan: true },
+    });
+    return {
+      ...created,
+      shopSlug: shop.slug,
+      bookingQrUrl: buildBookingQrUrl(shop.slug),
+      subscriptionEndsAt: shop.subscriptionEndsAt,
+      currentPlan: shop.currentPlan,
+      subscriptionDaysRemaining: daysRemaining(shop.subscriptionEndsAt),
+    };
   },
 
   /**
@@ -66,6 +84,13 @@ export const settingsService = {
       where: { id: existing.id },
       data: input,
     });
-    return { ...updated, shopSlug: existing.shopSlug, bookingQrUrl: existing.bookingQrUrl };
+    return {
+      ...updated,
+      shopSlug: existing.shopSlug,
+      bookingQrUrl: existing.bookingQrUrl,
+      subscriptionEndsAt: existing.subscriptionEndsAt,
+      currentPlan: existing.currentPlan,
+      subscriptionDaysRemaining: existing.subscriptionDaysRemaining,
+    };
   },
 };

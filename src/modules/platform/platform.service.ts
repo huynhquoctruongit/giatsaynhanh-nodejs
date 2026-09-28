@@ -4,6 +4,7 @@ import { hashPassword, comparePassword } from '../../helpers/utils/hash';
 import { signPlatformToken } from '../../helpers/utils/jwt';
 import { UserRole } from '../../helpers/enums';
 import { ConflictError, NotFoundError, UnauthorizedError } from '../../helpers/utils/errors';
+import { trialEndsAt, extendSubscription, type SubscriptionPlan } from '../../helpers/utils/subscription';
 import type {
   PlatformLoginInput,
   CreateShopInput,
@@ -43,7 +44,26 @@ export const platformService = {
   async createShop(input: CreateShopInput) {
     const existed = await prismaUnscoped.shop.findUnique({ where: { slug: input.slug } });
     if (existed) throw new ConflictError('Slug already in use');
-    return prismaUnscoped.shop.create({ data: { ...input, webhookToken: genWebhookToken() } });
+    return prismaUnscoped.shop.create({
+      data: {
+        ...input,
+        webhookToken: genWebhookToken(),
+        subscriptionEndsAt: trialEndsAt(),
+        currentPlan: 'TRIAL',
+      },
+    });
+  },
+
+  /** Kích hoạt gói trả phí — cộng nối tiếp vào hạn còn lại (không mất ngày dùng dở). */
+  async activateSubscription(shopId: string, plan: SubscriptionPlan) {
+    const shop = await prismaUnscoped.shop.findUnique({ where: { id: shopId } });
+    if (!shop) throw new NotFoundError('Shop not found');
+    const subscriptionEndsAt = extendSubscription(shop.subscriptionEndsAt, plan);
+    const { webhookSecret, ...updated } = await prismaUnscoped.shop.update({
+      where: { id: shopId },
+      data: { subscriptionEndsAt, currentPlan: plan },
+    });
+    return { ...updated, hasWebhookSecret: Boolean(webhookSecret) };
   },
 
   /** Sinh mới (hoặc thay) token webhook riêng của tiệm — làm URL cũ ngừng nhận ngay. */

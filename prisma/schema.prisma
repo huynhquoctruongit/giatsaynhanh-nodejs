@@ -42,6 +42,11 @@ model Shop {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Hạn dùng: tiệm mới tạo mặc định 30 ngày dùng thử (tính từ createdAt).
+  // Platform admin kích hoạt gói trả phí sẽ cộng nối tiếp vào hạn còn lại.
+  subscriptionEndsAt DateTime @default(now())
+  currentPlan        String   @default("TRIAL") // TRIAL | SIX_MONTHS | ONE_YEAR | THREE_YEARS
+
   // Webhook GPM Pay riêng cho tiệm này: POST /api/webhooks/gpmpay/<webhookToken>,
   // ký bằng webhookSecret riêng (GPM Pay cấp khi tiệm tự đăng ký tài khoản riêng).
   // Route webhook cũ (không token) không đọc 2 field này — vẫn dùng

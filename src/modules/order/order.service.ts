@@ -12,6 +12,7 @@ import { generateOrderCode } from '../../helpers/utils/order-code';
 import { generateQrToken } from '../../helpers/utils/qr';
 import { sendPush, getActiveTokens } from '../../lib/firebase';
 import { fmtMoney, fmtVNTime } from '../../helpers/utils/notify-format';
+import { assertSubscriptionActive } from '../../helpers/utils/subscription';
 import type {
   CreateOrderInput,
   UpdateOrderInput,
@@ -190,6 +191,9 @@ export const orderService = {
   },
 
   async create(input: CreateOrderInput, createdById?: string) {
+    const shop = await prisma.shop.findUniqueOrThrow({ where: { id: getCurrentShopId() } });
+    assertSubscriptionActive(shop.subscriptionEndsAt);
+
     const customer = await prisma.customer.findUnique({
       where: { id: input.customerId },
     });

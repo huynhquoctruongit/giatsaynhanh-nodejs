@@ -33,4 +33,9 @@ export const platformController = {
     const data = await platformService.setWebhookSecret(req.params.shopId, req.body);
     res.json({ success: true, data });
   }),
+
+  activateSubscription: asyncHandler(async (req: Request, res: Response) => {
+    const data = await platformService.activateSubscription(req.params.shopId, req.body.plan);
+    res.json({ success: true, data });
+  }),
 };
