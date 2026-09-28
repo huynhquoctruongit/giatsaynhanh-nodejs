@@ -3,6 +3,7 @@ import { ForbiddenError } from './errors';
 export const TRIAL_DAYS = 30;
 
 export const SUBSCRIPTION_PLAN_DAYS = {
+  TRIAL: TRIAL_DAYS,
   SIX_MONTHS: 182,
   ONE_YEAR: 365,
   THREE_YEARS: 1095,

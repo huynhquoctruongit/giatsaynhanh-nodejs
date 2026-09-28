@@ -47,7 +47,7 @@ export const setWebhookSecretSchema = z.object({
 
 export const activateSubscriptionSchema = z.object({
   body: z.object({
-    plan: z.enum(['SIX_MONTHS', 'ONE_YEAR', 'THREE_YEARS']),
+    plan: z.enum(['TRIAL', 'SIX_MONTHS', 'ONE_YEAR', 'THREE_YEARS']),
   }),
   params: z.object({
     shopId: z.string().uuid(),
