@@ -1,6 +1,7 @@
 import { prisma, prismaUnscoped } from '../../config/prisma';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError } from '../../helpers/utils/errors';
+import { buildBookingQrUrl } from '../../helpers/utils/qr';
 import type { UpdateSettingsInput } from '../../helpers/validators/settings.schema';
 
 const DEFAULT_SETTINGS = {
@@ -28,12 +29,12 @@ export const settingsService = {
     });
     if (existing) {
       const { shop, ...settings } = existing;
-      return { ...settings, shopSlug: shop.slug };
+      return { ...settings, shopSlug: shop.slug, bookingQrUrl: buildBookingQrUrl(shop.slug) };
     }
 
     const created = await prisma.shopSettings.create({ data: { ...DEFAULT_SETTINGS, shopId } });
     const shop = await prisma.shop.findUniqueOrThrow({ where: { id: shopId }, select: { slug: true } });
-    return { ...created, shopSlug: shop.slug };
+    return { ...created, shopSlug: shop.slug, bookingQrUrl: buildBookingQrUrl(shop.slug) };
   },
 
   /**
@@ -65,6 +66,6 @@ export const settingsService = {
       where: { id: existing.id },
       data: input,
     });
-    return { ...updated, shopSlug: existing.shopSlug };
+    return { ...updated, shopSlug: existing.shopSlug, bookingQrUrl: existing.bookingQrUrl };
   },
 };

@@ -7,6 +7,9 @@ export const generateQrToken = () => randomUUID();
 export const buildQrUrl = (token: string) =>
   `${env.publicWebUrl.replace(/\/$/, '')}/q/${token}`;
 
+export const buildBookingQrUrl = (shopSlug: string) =>
+  `${env.publicWebUrl.replace(/\/$/, '')}/${shopSlug}/dat-don`;
+
 export const generateQrDataUrl = async (token: string): Promise<string> => {
   const url = buildQrUrl(token);
   return QRCode.toDataURL(url, {
