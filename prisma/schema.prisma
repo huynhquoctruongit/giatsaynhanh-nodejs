@@ -33,7 +33,7 @@ model PlatformAdmin {
 // không nằm trong TENANT_MODELS, luôn truy cập qua prismaUnscoped.
 // Số ngày của mỗi gói vẫn cố định trong code (helpers/utils/subscription.ts).
 model SubscriptionPlanConfig {
-  plan        String   @id // SIX_MONTHS | ONE_YEAR | THREE_YEARS
+  plan        String   @id // SIX_MONTHS | ONE_YEAR | THREE_YEARS | LIFETIME
   name        String
   period      String // nhãn hiển thị sau giá, vd "/năm"
   description String   @default("")
@@ -61,7 +61,7 @@ model Shop {
   // Hạn dùng: tiệm mới tạo mặc định 30 ngày dùng thử (tính từ createdAt).
   // Platform admin kích hoạt gói trả phí sẽ cộng nối tiếp vào hạn còn lại.
   subscriptionEndsAt DateTime @default(now())
-  currentPlan        String   @default("TRIAL") // TRIAL | SIX_MONTHS | ONE_YEAR | THREE_YEARS
+  currentPlan        String   @default("TRIAL") // TRIAL | LEGACY | SIX_MONTHS | ONE_YEAR | THREE_YEARS | LIFETIME
 
   // Webhook GPM Pay riêng cho tiệm này: POST /api/webhooks/gpmpay/<webhookToken>,
   // ký bằng webhookSecret riêng (GPM Pay cấp khi tiệm tự đăng ký tài khoản riêng).

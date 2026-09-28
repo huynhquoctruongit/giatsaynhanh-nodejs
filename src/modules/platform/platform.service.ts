@@ -3,7 +3,7 @@ import { prismaUnscoped } from '../../config/prisma';
 import { hashPassword, comparePassword } from '../../helpers/utils/hash';
 import { signPlatformToken } from '../../helpers/utils/jwt';
 import { UserRole } from '../../helpers/enums';
-import { ConflictError, NotFoundError, UnauthorizedError } from '../../helpers/utils/errors';
+import { BadRequestError, ConflictError, NotFoundError, UnauthorizedError } from '../../helpers/utils/errors';
 import { trialEndsAt, extendSubscription, type SubscriptionPlan } from '../../helpers/utils/subscription';
 import type {
   PlatformLoginInput,
@@ -79,6 +79,9 @@ export const platformService = {
   async activateSubscription(shopId: string, plan: SubscriptionPlan) {
     const shop = await prismaUnscoped.shop.findUnique({ where: { id: shopId } });
     if (!shop) throw new NotFoundError('Shop not found');
+    if (shop.currentPlan === 'LIFETIME') {
+      throw new BadRequestError('Tiệm đã có gói trọn đời, không cần gia hạn');
+    }
     const subscriptionEndsAt = extendSubscription(shop.subscriptionEndsAt, plan);
     const { webhookSecret, ...updated } = await prismaUnscoped.shop.update({
       where: { id: shopId },

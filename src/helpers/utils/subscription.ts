@@ -9,7 +9,10 @@ export const SUBSCRIPTION_PLAN_DAYS = {
   THREE_YEARS: 1095,
 } as const;
 
-export type SubscriptionPlan = keyof typeof SUBSCRIPTION_PLAN_DAYS;
+/** Gói trọn đời: hạn dùng đặt ở mốc rất xa thay vì null để mọi phép so sánh hạn giữ nguyên. */
+export const LIFETIME_ENDS_AT = new Date('9999-12-31T00:00:00.000Z');
+
+export type SubscriptionPlan = keyof typeof SUBSCRIPTION_PLAN_DAYS | 'LIFETIME';
 
 export function addDays(date: Date, days: number): Date {
   const d = new Date(date);
@@ -23,6 +26,7 @@ export function trialEndsAt(from: Date = new Date()): Date {
 
 /** Cộng nối tiếp: gói mới bắt đầu tính từ hạn còn lại (nếu chưa hết hạn) hoặc từ hiện tại. */
 export function extendSubscription(currentEndsAt: Date, plan: SubscriptionPlan): Date {
+  if (plan === 'LIFETIME') return new Date(LIFETIME_ENDS_AT);
   const now = new Date();
   const base = currentEndsAt > now ? currentEndsAt : now;
   return addDays(base, SUBSCRIPTION_PLAN_DAYS[plan]);
