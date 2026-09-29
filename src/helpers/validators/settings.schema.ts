@@ -36,6 +36,7 @@ export const updateSettingsSchema = z.object({
     allowNoShiftOrder: z.boolean().optional(),
     bookingQrEnabled: z.boolean().optional(),
     openingCash: z.number().min(0).max(100_000_000).optional(),
+    defaultExpenses: z.number().min(0).max(10_000_000).optional(),
   }),
 });
 

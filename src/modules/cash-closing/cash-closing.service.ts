@@ -3,15 +3,12 @@ import { prisma } from '../../config/prisma';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { BadRequestError, ConflictError, NotFoundError } from '../../helpers/utils/errors';
 import { calcGrandTotal } from '../../helpers/utils/invoice-totals';
-import { fmtMoney } from '../../helpers/utils/notify-format';
+import { fmtMoney, fmtVNTime } from '../../helpers/utils/notify-format';
 import { sendPush } from '../../lib/firebase';
 import type { CreateCashClosingInput } from '../../helpers/validators/cash-closing.schema';
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Mệnh giá tiền Việt dùng khi đếm két. */
-export const DENOMINATIONS = [500000, 200000, 100000, 50000, 20000, 10000, 5000, 2000, 1000, 500];
 
 export function todayVN(): string {
   return new Date(Date.now() + VN_OFFSET_MS).toISOString().slice(0, 10);
@@ -39,7 +36,7 @@ export const cashClosingService = {
     const [settings, paidOrders, transferAgg, closing] = await Promise.all([
       prisma.shopSettings.findUnique({
         where: { shopId },
-        select: { openingCash: true, bookingShippingFee: true, freeShipThreshold: true },
+        select: { openingCash: true, defaultExpenses: true, bookingShippingFee: true, freeShipThreshold: true },
       }),
       prisma.order.findMany({
         where: { paidAt: { gte: from, lt: to }, status: { not: 'CANCELLED' } },
@@ -73,7 +70,7 @@ export const cashClosingService = {
       transferCount: transferAgg._count.id,
       cashFromOrders: collected - transfers,
       expectedBeforeExpenses: openingCash + collected - transfers,
-      denominations: DENOMINATIONS,
+      defaultExpenses: Number(settings?.defaultExpenses ?? 25000),
       closing,
     };
   },
@@ -85,11 +82,8 @@ export const cashClosingService = {
     const p = await this.preview(date);
     if (p.closing) throw new ConflictError(`Ngày ${date} đã chốt két rồi`);
 
-    const countedCash = DENOMINATIONS.reduce(
-      (sum, d) => sum + d * (input.denominations[String(d)] ?? 0),
-      0,
-    );
-    const expenses = input.expenses ?? 0;
+    const countedCash = input.countedCash;
+    const expenses = input.expenses ?? p.defaultExpenses;
     const expectedCash = p.expectedBeforeExpenses - expenses;
     const difference = countedCash - expectedCash;
     if (difference !== 0 && !input.note?.trim()) {
@@ -108,28 +102,30 @@ export const cashClosingService = {
         expectedCash,
         countedCash,
         difference,
-        denominations: input.denominations,
         note: input.note?.trim() || null,
         closedById,
       },
       include: closingInclude,
     });
 
-    // Báo chủ tiệm (tài khoản ADMIN) ngay khi chốt
+    // Báo chủ tiệm (tài khoản ADMIN): ngày giờ chốt, lệch/dư, lý do
     const admins = await prisma.user.findMany({
       where: { role: 'ADMIN', isActive: true, fcmToken: { not: null } },
       select: { fcmToken: true },
     });
-    const status =
-      difference === 0 ? '✅ khớp' : difference < 0 ? `🔴 thiếu ${fmtMoney(-difference)}` : `🟡 dư ${fmtMoney(difference)}`;
-    void sendPush(
-      admins.map((a) => a.fcmToken!),
-      `💵 Chốt két ${date.split('-').reverse().slice(0, 2).join('/')} — ${status}`,
-      `${closing.closedBy.name}: thu ${fmtMoney(p.collected)} (CK ${fmtMoney(p.transfers)}). ` +
-        `Két đếm ${fmtMoney(countedCash)} / phải có ${fmtMoney(expectedCash)}` +
-        (expenses ? ` · chi ${fmtMoney(expenses)}` : ''),
-      { type: 'CASH_CLOSING', id: closing.id },
-    );
+    const result =
+      difference === 0 ? '✅ Két khớp' : difference < 0 ? `🔴 Thiếu ${fmtMoney(-difference)}` : `🟡 Dư ${fmtMoney(difference)}`;
+    const body = [
+      `${closing.closedBy.name} chốt lúc ${fmtVNTime(closing.createdAt)}`,
+      `Két đếm ${fmtMoney(countedCash)} / phải có ${fmtMoney(expectedCash)}`,
+      closing.note ? `Lý do: ${closing.note}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    void sendPush(admins.map((a) => a.fcmToken!), `💵 Chốt két ${date.split('-').reverse().join('/')} — ${result}`, body, {
+      type: 'CASH_CLOSING',
+      id: closing.id,
+    });
 
     return closing;
   },

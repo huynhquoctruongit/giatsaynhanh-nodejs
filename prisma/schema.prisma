@@ -475,7 +475,7 @@ model CashClosing {
   expectedCash  Decimal  @db.Decimal(14, 2)
   countedCash   Decimal  @db.Decimal(14, 2)
   difference    Decimal  @db.Decimal(14, 2) // đếm − phải có (âm = thiếu)
-  denominations Json // { "500000": 2, "200000": 1, ... }
+  denominations Json? // (cũ) số tờ theo mệnh giá — giờ nhập thẳng countedCash
   note          String?
   closedById    String
   closedBy      User     @relation(fields: [closedById], references: [id])
@@ -605,6 +605,7 @@ model ShopSettings {
   allowNoShiftOrder    Boolean  @default(true)
   bookingQrEnabled     Boolean  @default(true) // bật/tắt QR "đặt đơn tại cửa" theo từng tiệm
   openingCash          Decimal  @default(750000) @db.Decimal(12, 2) // tiền lẻ để sẵn trong két đầu ngày
+  defaultExpenses      Decimal  @default(25000) @db.Decimal(12, 2) // chi phí mặc định mỗi ngày khi chốt két (đá, cf ông Địa)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

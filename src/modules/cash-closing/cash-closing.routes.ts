@@ -17,8 +17,8 @@ router.use(authStaff);
 // Nhân viên: xem số liệu hôm nay + chốt két
 router.get('/preview', validate(previewCashClosingSchema), cashClosingController.preview);
 router.post('/', validate(createCashClosingSchema), cashClosingController.create);
-// Chủ tiệm: sổ chốt két theo tháng, xoá để cho chốt lại
-router.get('/', requireRole(UserRole.ADMIN), validate(listCashClosingSchema), cashClosingController.list);
+// Sổ chốt két theo tháng: mọi nhân viên xem được; chỉ chủ tiệm xoá để cho chốt lại
+router.get('/', validate(listCashClosingSchema), cashClosingController.list);
 router.delete('/:id', requireRole(UserRole.ADMIN), validate(cashClosingIdSchema), cashClosingController.remove);
 
 export { router as cashClosingRouter };

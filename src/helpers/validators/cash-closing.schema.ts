@@ -9,8 +9,8 @@ export const previewCashClosingSchema = z.object({
 export const createCashClosingSchema = z.object({
   body: z.object({
     date: dateStr.optional(),
-    // { "500000": 2, "200000": 1, ... } — số tờ theo mệnh giá
-    denominations: z.record(z.string().regex(/^\d+$/), z.number().int().min(0).max(10000)),
+    // Tiền mặt nhân viên đếm được trong két
+    countedCash: z.number().int().min(0).max(1_000_000_000),
     expenses: z.number().int().min(0).max(10_000_000).optional(),
     expenseNote: z.string().max(200).optional(),
     note: z.string().max(500).optional(),
