@@ -62,6 +62,7 @@ export const updatePlanConfigSchema = z.object({
     price: z.number().int().min(0),
     features: z.array(z.string().trim().min(1).max(200)).max(20),
     popular: z.boolean(),
+    vip: z.boolean().optional(),
   }),
   params: z.object({
     plan: z.enum(['SIX_MONTHS', 'ONE_YEAR', 'THREE_YEARS', 'LIFETIME']),
