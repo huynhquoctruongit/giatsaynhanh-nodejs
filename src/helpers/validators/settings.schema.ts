@@ -21,6 +21,7 @@ export const updateSettingsSchema = z.object({
     invoiceShowDebt: z.boolean().optional(),
     openingHours: z.string().nullable().optional(),
     invoiceNote: z.string().nullable().optional(),
+    smallOrderNote: z.string().nullable().optional(),
     bankBin: z.string().nullable().optional(),
     bankAccountNumber: z.string().nullable().optional(),
     bankAccountName: z.string().nullable().optional(),
