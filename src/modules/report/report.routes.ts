@@ -10,5 +10,6 @@ router.get('/dashboard', reportController.dashboard);
 router.get('/financial', reportController.financial);
 router.get('/sales', reportController.sales);
 router.get('/inventory', reportController.inventory);
+router.get('/services', reportController.services);
 
 export { router as reportRouter };

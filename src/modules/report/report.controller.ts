@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../../helpers/utils/async-handler';
 import { reportService } from './report.service';
+import { serviceStats } from './service-stats';
+import { BadRequestError } from '../../helpers/utils/errors';
 
 const parseDate = (val: unknown): Date | undefined => {
   if (!val || typeof val !== 'string') return undefined;
@@ -26,6 +28,13 @@ export const reportController = {
     const from = parseDate(req.query.from);
     const to = parseDate(req.query.to);
     const data = await reportService.sales({ from, to });
+    res.json({ success: true, data });
+  }),
+
+  services: asyncHandler(async (req: Request, res: Response) => {
+    const month = String(req.query.month ?? '');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new BadRequestError('month phải dạng YYYY-MM');
+    const data = await serviceStats(month);
     res.json({ success: true, data });
   }),
 
