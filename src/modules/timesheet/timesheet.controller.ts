@@ -19,6 +19,16 @@ export const timesheetController = {
     res.json({ success: true, data });
   }),
 
+  update: asyncHandler(async (req: Request, res: Response) => {
+    const data = await timesheetService.update(req.params.id, req.body);
+    res.json({ success: true, data });
+  }),
+
+  remove: asyncHandler(async (req: Request, res: Response) => {
+    await timesheetService.remove(req.params.id);
+    res.json({ success: true, data: null });
+  }),
+
   monthly: asyncHandler(async (req: Request, res: Response) => {
     const { month, userId } = req.query as { month: string; userId?: string };
     // Nhân viên chỉ xem được của chính mình; ADMIN xem tất cả hoặc lọc theo userId.

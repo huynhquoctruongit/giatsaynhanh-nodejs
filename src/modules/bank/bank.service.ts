@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
+import { matchTransferToOrder } from './transfer-match';
 
 // Server chạy UTC (Render) → tính mốc ngày theo giờ VN (UTC+7) cho khớp với báo cáo.
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -107,11 +108,32 @@ export const bankService = {
       shopId = mapping?.shopId ?? null;
     }
 
-    return prisma.bankTransaction.upsert({
+    const existed = await prisma.bankTransaction.findUnique({ where: { externalId }, select: { id: true } });
+    const saved = await prisma.bankTransaction.upsert({
       where: { externalId },
       create: { externalId, shopId, ...data },
       update: { shopId, ...data },
     });
+    // Khớp với đơn theo mã trong nội dung (QR hoá đơn). Chỉ báo POS với giao dịch MỚI
+    // (webhook gửi lại / sync REST chỉ bù khớp, không báo lại). Lỗi ở đây không được
+    // làm hỏng webhook.
+    try {
+      await matchTransferToOrder(saved, !existed);
+    } catch (err) {
+      console.error('[bank] match order error:', err);
+    }
+    return saved;
+  },
+
+  /** Máy POS quầy đăng ký / huỷ nhận báo "đã nhận chuyển khoản". Giữ tối đa 5 máy gần nhất. */
+  async setPosDevice(token: string, enabled: boolean) {
+    const shopId = getCurrentShopId();
+    const settings = await prisma.shopSettings.findUnique({ where: { shopId }, select: { posFcmTokens: true } });
+    if (!settings) return { enabled: false };
+    const others = settings.posFcmTokens.filter((t) => t !== token);
+    const posFcmTokens = enabled ? [...others, token].slice(-5) : others;
+    await prisma.shopSettings.update({ where: { shopId }, data: { posFcmTokens } });
+    return { enabled };
   },
 
   /** Tổng tiền CHUYỂN VÀO (IN) trong ngày VN + danh sách giao dịch gần đây. */

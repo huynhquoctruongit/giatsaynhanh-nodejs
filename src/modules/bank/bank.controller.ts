@@ -5,6 +5,16 @@ import { prismaUnscoped } from '../../config/prisma';
 import { bankService } from './bank.service';
 
 export const bankController = {
+  setPosDevice: asyncHandler(async (req: Request, res: Response) => {
+    const { token, enabled } = req.body as { token?: unknown; enabled?: unknown };
+    if (typeof token !== 'string' || token.length < 20 || token.length > 4096) {
+      res.status(400).json({ success: false, message: 'token không hợp lệ' });
+      return;
+    }
+    const data = await bankService.setPosDevice(token, enabled !== false);
+    res.json({ success: true, data });
+  }),
+
   /**
    * Webhook GPM Pay (PUBLIC — không qua authStaff). Verify HMAC bằng rawBody.
    * Trả 200 nhanh để GPM Pay không retry; sai chữ ký → 401.

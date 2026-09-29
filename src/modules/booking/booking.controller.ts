@@ -65,14 +65,12 @@ export const bookingController = {
   }),
 
   update: asyncHandler(async (req: Request, res: Response) => {
-    const isAdmin = req.user?.role === 'ADMIN';
-    const booking = await bookingService.update(req.params.id, req.body, isAdmin);
+    const booking = await bookingService.update(req.params.id, req.body);
     res.json({ success: true, data: toBookingResponse(booking) });
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {
-    const isAdmin = req.user?.role === 'ADMIN';
-    await bookingService.remove(req.params.id, isAdmin);
+    await bookingService.remove(req.params.id);
     res.status(HTTP_STATUS.NO_CONTENT).send();
   }),
 };

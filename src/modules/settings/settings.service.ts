@@ -5,6 +5,9 @@ import { buildBookingQrUrl } from '../../helpers/utils/qr';
 import { daysRemaining } from '../../helpers/utils/subscription';
 import type { UpdateSettingsInput } from '../../helpers/validators/settings.schema';
 
+// Không trả token máy POS ra API cài đặt (chỉ backend dùng để gửi báo CK).
+const hidePrivate = <T extends { posFcmTokens?: unknown }>({ posFcmTokens: _tokens, ...rest }: T) => rest;
+
 const DEFAULT_SETTINGS = {
   shopName: 'Laundry Shop',
   invoiceTemplate: 'default',
@@ -29,7 +32,8 @@ export const settingsService = {
       include: { shop: { select: { slug: true, subscriptionEndsAt: true, currentPlan: true } } },
     });
     if (existing) {
-      const { shop, ...settings } = existing;
+      const { shop, ...raw } = existing;
+      const settings = hidePrivate(raw);
       return {
         ...settings,
         shopSlug: shop.slug,
@@ -46,7 +50,7 @@ export const settingsService = {
       select: { slug: true, subscriptionEndsAt: true, currentPlan: true },
     });
     return {
-      ...created,
+      ...hidePrivate(created),
       shopSlug: shop.slug,
       bookingQrUrl: buildBookingQrUrl(shop.slug),
       subscriptionEndsAt: shop.subscriptionEndsAt,
@@ -85,7 +89,7 @@ export const settingsService = {
       data: input,
     });
     return {
-      ...updated,
+      ...hidePrivate(updated),
       shopSlug: existing.shopSlug,
       bookingQrUrl: existing.bookingQrUrl,
       subscriptionEndsAt: existing.subscriptionEndsAt,

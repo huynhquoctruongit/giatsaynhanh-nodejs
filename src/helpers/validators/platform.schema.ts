@@ -68,6 +68,12 @@ export const updatePlanConfigSchema = z.object({
   }),
 });
 
+export const planParamSchema = z.object({
+  params: z.object({
+    plan: z.enum(['SIX_MONTHS', 'ONE_YEAR', 'THREE_YEARS', 'LIFETIME']),
+  }),
+});
+
 export type PlatformLoginInput = z.infer<typeof platformLoginSchema>['body'];
 export type CreateShopInput = z.infer<typeof createShopSchema>['body'];
 export type CreateShopAdminInput = z.infer<typeof createShopAdminSchema>['body'];

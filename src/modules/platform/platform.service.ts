@@ -56,8 +56,22 @@ export const platformService = {
   },
 
   /** Giá + lợi ích các gói trả phí — dùng cho cả bảng giá public lẫn trang platform. */
-  listPlanConfigs() {
-    return prismaUnscoped.subscriptionPlanConfig.findMany({ orderBy: { sortOrder: 'asc' } });
+  /** Platform: tất cả gói (kể cả đã xoá, xếp cuối). Public: chỉ gói đang bán. */
+  listPlanConfigs(onlyActive = false) {
+    return prismaUnscoped.subscriptionPlanConfig.findMany({
+      where: onlyActive ? { isActive: true } : undefined,
+      orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }],
+    });
+  },
+
+  /** Xoá mềm: ẩn khỏi bảng giá + không kích hoạt được nữa. Tiệm đang dùng gói này không bị ảnh hưởng. */
+  async setPlanActive(plan: string, isActive: boolean) {
+    const existed = await prismaUnscoped.subscriptionPlanConfig.findUnique({ where: { plan } });
+    if (!existed) throw new NotFoundError('Plan not found');
+    return prismaUnscoped.subscriptionPlanConfig.update({
+      where: { plan },
+      data: { isActive, ...(isActive ? {} : { popular: false }) },
+    });
   },
 
   async updatePlanConfig(plan: string, input: UpdatePlanConfigInput) {
@@ -81,6 +95,10 @@ export const platformService = {
     if (!shop) throw new NotFoundError('Shop not found');
     if (shop.currentPlan === 'LIFETIME') {
       throw new BadRequestError('Tiệm đã có gói trọn đời, không cần gia hạn');
+    }
+    if (plan !== 'TRIAL') {
+      const config = await prismaUnscoped.subscriptionPlanConfig.findUnique({ where: { plan } });
+      if (config && !config.isActive) throw new BadRequestError('Gói này đã bị xoá, khôi phục gói trước khi kích hoạt');
     }
     const subscriptionEndsAt = extendSubscription(shop.subscriptionEndsAt, plan);
     const { webhookSecret, ...updated } = await prismaUnscoped.shop.update({

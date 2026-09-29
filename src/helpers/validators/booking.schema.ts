@@ -62,6 +62,20 @@ export const convertBookingSchema = z.object({
   }),
 });
 
+// Admin sửa đặt lịch: thông tin khách, giờ nhận/giao, danh sách dịch vụ (thay toàn bộ nếu gửi items)
+export const updateBookingSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    phone: z.string().min(8).max(20).regex(phoneRegex, 'Số điện thoại không hợp lệ').optional(),
+    address: z.string().min(1, 'Vui lòng nhập địa chỉ').optional(),
+    note: z.string().nullable().optional(),
+    pickupAt: z.coerce.date().nullable().optional(),
+    deliveryAt: z.coerce.date().nullable().optional(),
+    items: z.array(bookingItemSchema).min(1, 'Cần ít nhất 1 dịch vụ').optional(),
+  }),
+});
+
+export type UpdateBookingInput = z.infer<typeof updateBookingSchema>['body'];
 export type CreateBookingFromQrInput = z.infer<
   typeof createBookingFromQrSchema
 >['body'];

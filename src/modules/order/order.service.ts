@@ -315,8 +315,9 @@ export const orderService = {
             : order.readyAt,
         // Giao = mặc định ĐÃ THU TIỀN (vào lợi nhuận ngay). Nếu là đơn nợ,
         // nhân viên bấm "Đánh dấu nợ" sau để xoá paidAt. Rời DELIVERED → xoá paidAt.
-        ...(becomingDelivered ? { paidAt: new Date() } : {}),
-        ...(leavingDelivered ? { paidAt: null } : {}),
+        // Đơn đã được CK tự đánh dấu thanh toán trước đó thì giữ nguyên mốc paidAt.
+        ...(becomingDelivered && !order.paidAt ? { paidAt: new Date() } : {}),
+        ...(leavingDelivered && Number(order.transferredAmount) <= 0 ? { paidAt: null } : {}),
       },
       include: orderInclude,
     });

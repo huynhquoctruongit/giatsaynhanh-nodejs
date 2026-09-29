@@ -10,6 +10,7 @@ import { fmtVNTime } from '../../helpers/utils/notify-format';
 import { assertSubscriptionActive } from '../../helpers/utils/subscription';
 import { settingsService } from '../settings/settings.service';
 import type {
+  UpdateBookingInput,
   ConvertBookingInput,
   CreateBookingFromQrInput,
 } from '../../helpers/validators/booking.schema';
@@ -386,39 +387,44 @@ export const bookingService = {
     });
   },
 
-  async update(
-    id: string,
-    input: {
-      note?: string | null;
-      phone?: string;
-      address?: string;
-      pickupAt?: string | null;
-      deliveryAt?: string | null;
-    },
-    isAdmin = false,
-  ) {
+  /** Chỉ ADMIN (chặn ở route). Gửi `items` = thay toàn bộ danh sách dịch vụ. */
+  async update(id: string, input: UpdateBookingInput) {
     const booking = await this.getById(id);
-    if (!isAdmin && (booking.status === BookingStatus.CONVERTED || booking.status === BookingStatus.CANCELLED)) {
-      throw new BadRequestError('Không thể sửa đặt lịch đã chuyển đơn hoặc đã huỷ');
+    if (input.items && booking.status === BookingStatus.CONVERTED) {
+      throw new BadRequestError('Đặt lịch đã chuyển thành đơn — hãy sửa dịch vụ ở đơn hàng');
     }
-    return prisma.booking.update({
-      where: { id },
-      data: {
-        note: input.note,
-        phone: input.phone,
-        address: input.address,
-        pickupAt: input.pickupAt !== undefined ? (input.pickupAt ? new Date(input.pickupAt) : null) : undefined,
-        deliveryAt: input.deliveryAt !== undefined ? (input.deliveryAt ? new Date(input.deliveryAt) : null) : undefined,
-      },
-      include: bookingInclude,
+    return prisma.$transaction(async (tx) => {
+      if (input.items) {
+        await tx.bookingItem.deleteMany({ where: { bookingId: id } });
+        await tx.bookingItem.createMany({
+          data: input.items.map((i) => ({
+            shopId: getCurrentShopId(),
+            bookingId: id,
+            productId: i.productId,
+            name: i.name,
+            quantity: i.quantity,
+            weight: i.weight,
+            unitPrice: i.unitPrice,
+          })),
+        });
+      }
+      return tx.booking.update({
+        where: { id },
+        data: {
+          note: input.note,
+          phone: input.phone,
+          address: input.address,
+          pickupAt: input.pickupAt,
+          deliveryAt: input.deliveryAt,
+        },
+        include: bookingInclude,
+      });
     });
   },
 
-  async remove(id: string, isAdmin = false) {
-    const booking = await this.getById(id);
-    if (!isAdmin && booking.status === BookingStatus.CONVERTED) {
-      throw new BadRequestError('Không thể xoá đặt lịch đã chuyển thành đơn');
-    }
+  /** Chỉ ADMIN (chặn ở route) — xoá được cả đặt lịch đã chuyển đơn (đơn hàng giữ nguyên). */
+  async remove(id: string) {
+    await this.getById(id);
     await prisma.booking.delete({ where: { id } });
   },
 };

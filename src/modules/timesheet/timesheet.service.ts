@@ -1,6 +1,7 @@
 import { prisma } from '../../config/prisma';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
-import { BadRequestError } from '../../helpers/utils/errors';
+import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
+import type { UpdateTimeEntryInput } from '../../helpers/validators/timesheet.schema';
 import {
   HOURLY_RATE_SUNDAY,
   HOURLY_RATE_WEEKDAY,
@@ -32,6 +33,29 @@ export const timesheetService = {
       where: { id: open.id },
       data: { checkOut: new Date() },
     });
+  },
+
+  /** ADMIN sửa giờ vào/ra của 1 ca chấm công. */
+  async update(id: string, input: UpdateTimeEntryInput) {
+    const entry = await prisma.timeEntry.findUnique({ where: { id } });
+    if (!entry) throw new NotFoundError('Không tìm thấy ca chấm công');
+    if (!input.checkOut) {
+      // Mở lại ca: không được có ca đang mở khác của cùng nhân viên
+      const open = await prisma.timeEntry.findFirst({
+        where: { userId: entry.userId, checkOut: null, id: { not: id } },
+      });
+      if (open) throw new BadRequestError('Nhân viên đang có ca khác chưa kết');
+    }
+    return prisma.timeEntry.update({
+      where: { id },
+      data: { checkIn: input.checkIn, checkOut: input.checkOut },
+    });
+  },
+
+  async remove(id: string) {
+    const entry = await prisma.timeEntry.findUnique({ where: { id } });
+    if (!entry) throw new NotFoundError('Không tìm thấy ca chấm công');
+    await prisma.timeEntry.delete({ where: { id } });
   },
 
   /**

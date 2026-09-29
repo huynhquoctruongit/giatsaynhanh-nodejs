@@ -40,6 +40,7 @@ model SubscriptionPlanConfig {
   price       Int
   features    String[]
   popular     Boolean  @default(false)
+  isActive    Boolean  @default(true) // false = đã xoá (ẩn khỏi bảng giá + không kích hoạt được), khôi phục được
   sortOrder   Int      @default(0)
   updatedAt   DateTime @updatedAt
 }
@@ -203,6 +204,10 @@ model Order {
 
   items         OrderItem[]
   scanHistories ScanHistory[]
+
+  // Tổng tiền khách đã chuyển khoản cho đơn (khớp tự động từ GPM Pay)
+  transferredAmount Decimal           @default(0) @db.Decimal(14, 2)
+  bankTransactions  BankTransaction[]
 
   bookingsAsSource   Booking[] @relation("BookingSource")
   bookingFromConvert Booking?  @relation("BookingConverted")
@@ -512,6 +517,12 @@ model BankTransaction {
   shopId String? // null nếu accountNumber chưa được map vào tiệm nào (cần xử lý thủ công)
   shop   Shop?   @relation(fields: [shopId], references: [id])
 
+  // Khớp tự động theo mã đơn trong nội dung CK (QR hoá đơn: "LD20260929A55LH")
+  orderId String?
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+
   @@index([shopId])
   @@index([transactionAt])
   @@index([direction])
@@ -548,6 +559,8 @@ model ShopSettings {
   invoiceNote             String?  // ghi chú cuối hoá đơn, riêng theo từng tiệm
   // Đơn dưới 3kg: in dòng chữ nhỏ này thay cho khung ghi chú/quảng cáo (vd thông báo đơn tối thiểu)
   smallOrderNote          String?
+  // FCM token các máy POS quầy (Sunmi) — nhận báo "đã nhận chuyển khoản" như loa
+  posFcmTokens            String[] @default([])
   bankBin                 String?  // mã BIN ngân hàng theo chuẩn Napas, vd Vietcombank = 970436
   bankAccountNumber       String?
   bankAccountName         String?  // tên chủ tài khoản, không dấu, IN HOA theo chuẩn VietQR

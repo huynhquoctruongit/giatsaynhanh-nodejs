@@ -10,6 +10,7 @@ import {
   setWebhookSecretSchema,
   activateSubscriptionSchema,
   updatePlanConfigSchema,
+  planParamSchema,
 } from '../../helpers/validators/platform.schema';
 
 const router = Router();
@@ -17,7 +18,7 @@ const router = Router();
 router.post('/login', validate(platformLoginSchema), platformController.login);
 
 // Public: bảng giá trên landing page — phải đặt TRƯỚC authPlatform
-router.get('/public/plans', platformController.listPlanConfigs);
+router.get('/public/plans', platformController.listPublicPlanConfigs);
 
 router.use(authPlatform);
 router.get('/shops', platformController.listShops);
@@ -44,5 +45,7 @@ router.patch(
 );
 router.get('/plans', platformController.listPlanConfigs);
 router.put('/plans/:plan', validate(updatePlanConfigSchema), platformController.updatePlanConfig);
+router.delete('/plans/:plan', validate(planParamSchema), platformController.deletePlanConfig);
+router.post('/plans/:plan/restore', validate(planParamSchema), platformController.restorePlanConfig);
 
 export { router as platformRouter };

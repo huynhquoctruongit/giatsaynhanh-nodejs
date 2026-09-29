@@ -39,6 +39,21 @@ export const platformController = {
     res.json({ success: true, data });
   }),
 
+  listPublicPlanConfigs: asyncHandler(async (_req: Request, res: Response) => {
+    const data = await platformService.listPlanConfigs(true);
+    res.json({ success: true, data });
+  }),
+
+  deletePlanConfig: asyncHandler(async (req: Request, res: Response) => {
+    const data = await platformService.setPlanActive(req.params.plan, false);
+    res.json({ success: true, data });
+  }),
+
+  restorePlanConfig: asyncHandler(async (req: Request, res: Response) => {
+    const data = await platformService.setPlanActive(req.params.plan, true);
+    res.json({ success: true, data });
+  }),
+
   updatePlanConfig: asyncHandler(async (req: Request, res: Response) => {
     const data = await platformService.updatePlanConfig(req.params.plan, req.body);
     res.json({ success: true, data });
