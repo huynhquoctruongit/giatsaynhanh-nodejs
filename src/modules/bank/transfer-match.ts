@@ -1,6 +1,7 @@
 import { prismaUnscoped } from '../../config/prisma';
 import { sendPush } from '../../lib/firebase';
 import { fmtMoney, fmtVNTime } from '../../helpers/utils/notify-format';
+import { calcGrandTotal } from '../../helpers/utils/invoice-totals';
 
 /**
  * Mã đơn trong nội dung CK. QR hoá đơn gửi addInfo = mã đơn "LD-20260929-A55LH",
@@ -14,26 +15,19 @@ export function extractOrderCode(content: string | null | undefined): string | n
   return m ? `LD-${m[1]}-${m[2]}` : null;
 }
 
-/** Tổng cần thu của đơn — khớp calcInvoiceTotals ở web/app (số tiền in trên QR hoá đơn). */
 async function grandTotalOf(order: {
   shopId: string;
   totalAmount: unknown;
   discountAmount: unknown;
   bookingFromConvert: { id: string } | null;
 }) {
-  const subtotal = Number(order.totalAmount);
-  const discount = Number(order.discountAmount ?? 0);
-  let shipping = 0;
-  if (order.bookingFromConvert) {
-    const s = await prismaUnscoped.shopSettings.findUnique({
-      where: { shopId: order.shopId },
-      select: { bookingShippingFee: true, freeShipThreshold: true },
-    });
-    const fee = Number(s?.bookingShippingFee ?? 0);
-    const threshold = Number(s?.freeShipThreshold ?? 0);
-    if (fee > 0 && !(threshold > 0 && subtotal >= threshold)) shipping = fee;
-  }
-  return subtotal + shipping - discount;
+  const settings = order.bookingFromConvert
+    ? await prismaUnscoped.shopSettings.findUnique({
+        where: { shopId: order.shopId },
+        select: { bookingShippingFee: true, freeShipThreshold: true },
+      })
+    : null;
+  return calcGrandTotal({ ...order, fromBooking: !!order.bookingFromConvert }, settings);
 }
 
 /**

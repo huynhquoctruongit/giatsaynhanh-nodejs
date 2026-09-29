@@ -89,6 +89,7 @@ model Shop {
   shifts              Shift[]
   shiftAttendances    ShiftAttendance[]
   timeEntries         TimeEntry[]
+  cashClosings        CashClosing[]
   settings            ShopSettings?
   bankTransactions    BankTransaction[]
   bankAccountMappings BankAccountShopMapping[]
@@ -119,6 +120,7 @@ model User {
   openedShifts   Shift[]           @relation("OpenedShifts")
   attendances    ShiftAttendance[]
   timeEntries    TimeEntry[]
+  cashClosings   CashClosing[]
 
   // Email không còn unique toàn cục — 2 tiệm khác nhau được phép dùng trùng
   // email (mỗi tiệm là 1 khách hàng thương mại độc lập của bạn).
@@ -459,6 +461,33 @@ model Shift {
   @@index([createdAt])
 }
 
+// Chốt két cuối ngày (1 lần/ngày/tiệm). Hệ thống tự tính tiền mặt phải có:
+//   đầu ngày + đã thu − chuyển khoản − chi phí; nhân viên đếm két theo mệnh giá.
+// Lưu cả số liệu lúc chốt (snapshot) để sau này đơn/CK thay đổi cũng không đổi sổ.
+model CashClosing {
+  id            String   @id @default(uuid())
+  date          String // "YYYY-MM-DD" theo giờ VN
+  openingCash   Decimal  @db.Decimal(14, 2)
+  collected     Decimal  @db.Decimal(14, 2) // tổng tiền các đơn đã thu trong ngày
+  transfers     Decimal  @db.Decimal(14, 2) // tổng chuyển khoản vào (GPM Pay) trong ngày
+  expenses      Decimal  @default(0) @db.Decimal(14, 2) // chi tiền mặt từ két (đá, cf ông Địa…)
+  expenseNote   String?
+  expectedCash  Decimal  @db.Decimal(14, 2)
+  countedCash   Decimal  @db.Decimal(14, 2)
+  difference    Decimal  @db.Decimal(14, 2) // đếm − phải có (âm = thiếu)
+  denominations Json // { "500000": 2, "200000": 1, ... }
+  note          String?
+  closedById    String
+  closedBy      User     @relation(fields: [closedById], references: [id])
+  createdAt     DateTime @default(now())
+
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@unique([shopId, date])
+  @@index([shopId])
+}
+
 // Chấm công cá nhân: nhân viên tự bấm vào ca / kết ca (nút nổi trên app).
 // Độc lập với Shift (ca cửa hàng, dùng cho đơn hàng). Lưu giờ bấm thật;
 // làm tròn 30 phút + tính lương ở helpers/utils/timesheet.ts.
@@ -575,6 +604,7 @@ model ShopSettings {
   freeShipThreshold    Decimal? @db.Decimal(12, 2) // tổng đơn >= ngưỡng này thì FREESHIP (0/null = luôn tính ship)
   allowNoShiftOrder    Boolean  @default(true)
   bookingQrEnabled     Boolean  @default(true) // bật/tắt QR "đặt đơn tại cửa" theo từng tiệm
+  openingCash          Decimal  @default(750000) @db.Decimal(12, 2) // tiền lẻ để sẵn trong két đầu ngày
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

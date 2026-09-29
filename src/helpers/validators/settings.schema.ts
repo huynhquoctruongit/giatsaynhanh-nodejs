@@ -35,6 +35,7 @@ export const updateSettingsSchema = z.object({
     freeShipThreshold: z.coerce.number().nonnegative().nullable().optional(),
     allowNoShiftOrder: z.boolean().optional(),
     bookingQrEnabled: z.boolean().optional(),
+    openingCash: z.number().min(0).max(100_000_000).optional(),
   }),
 });
 
