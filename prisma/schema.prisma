@@ -606,6 +606,7 @@ model ShopSettings {
   bookingQrEnabled     Boolean  @default(true) // bật/tắt QR "đặt đơn tại cửa" theo từng tiệm
   openingCash          Decimal  @default(750000) @db.Decimal(12, 2) // tiền lẻ để sẵn trong két đầu ngày
   defaultExpenses      Decimal  @default(25000) @db.Decimal(12, 2) // chi phí mặc định mỗi ngày khi chốt két (đá, cf ông Địa)
+  closeTime            String   @default("21:30") // "HH:mm" giờ đóng cửa — trước 10' nút chốt két rung + kêu nhắc
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

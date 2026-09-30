@@ -36,7 +36,13 @@ export const cashClosingService = {
     const [settings, paidOrders, transferAgg, closing] = await Promise.all([
       prisma.shopSettings.findUnique({
         where: { shopId },
-        select: { openingCash: true, defaultExpenses: true, bookingShippingFee: true, freeShipThreshold: true },
+        select: {
+          openingCash: true,
+          defaultExpenses: true,
+          closeTime: true,
+          bookingShippingFee: true,
+          freeShipThreshold: true,
+        },
       }),
       prisma.order.findMany({
         where: { paidAt: { gte: from, lt: to }, status: { not: 'CANCELLED' } },
@@ -71,6 +77,8 @@ export const cashClosingService = {
       cashFromOrders: collected - transfers,
       expectedBeforeExpenses: openingCash + collected - transfers,
       defaultExpenses: Number(settings?.defaultExpenses ?? 25000),
+      /** Giờ đóng cửa "HH:mm" — app/web nhắc chốt két trước 10 phút */
+      closeTime: settings?.closeTime ?? '21:30',
       closing,
     };
   },

@@ -37,6 +37,7 @@ export const updateSettingsSchema = z.object({
     bookingQrEnabled: z.boolean().optional(),
     openingCash: z.number().min(0).max(100_000_000).optional(),
     defaultExpenses: z.number().min(0).max(10_000_000).optional(),
+    closeTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Giờ đóng cửa dạng HH:mm').optional(),
   }),
 });
 
