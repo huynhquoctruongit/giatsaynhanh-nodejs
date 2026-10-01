@@ -137,6 +137,8 @@ model Customer {
   address   String?
   note      String?
   qrToken   String   @unique @default(uuid()) // global unique: trang tra cứu công khai /q/[token] suy ra shop từ token, không cần biết trước tiệm nào
+  // Bản trùng đã được gộp vào khách khác (id) → ẩn khỏi danh sách; QR cũ của bản này trỏ sang khách đó
+  mergedIntoId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -150,6 +152,7 @@ model Customer {
   @@unique([shopId, name])
   @@index([shopId])
   @@index([qrToken])
+  @@index([mergedIntoId])
 }
 
 model Product {

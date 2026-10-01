@@ -19,9 +19,13 @@ import type {
 // Supports both new customer-level QR and legacy order-level QR (backward compat).
 async function resolveCustomerFromToken(token: string) {
   // New: customer-level QR (permanent)
-  const customer = await prisma.customer.findUnique({
+  let customer = await prisma.customer.findUnique({
     where: { qrToken: token },
   });
+  // QR của bản trùng đã gộp → dùng khách được giữ lại
+  if (customer?.mergedIntoId) {
+    customer = (await prisma.customer.findUnique({ where: { id: customer.mergedIntoId } })) ?? customer;
+  }
   if (customer) {
     const sourceOrder = await prisma.order.findFirst({
       where: { customerId: customer.id },
@@ -78,7 +82,7 @@ export const bookingService = {
     const address = input.address?.trim();
 
     let customer = await prisma.customer.findFirst({
-      where: { phone },
+      where: { phone, mergedIntoId: null },
       orderBy: { createdAt: 'desc' },
     });
 

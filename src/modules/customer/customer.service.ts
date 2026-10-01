@@ -7,10 +7,28 @@ import type {
   UpdateCustomerInput,
 } from '../../helpers/validators/customer.schema';
 
+/** Chuẩn hoá tên khách: bỏ dấu cách đầu/cuối và dấu cách thừa giữa các chữ. */
+export const normalizeName = (name: string) => name.normalize('NFC').trim().replace(/\s+/g, ' ');
+
+/**
+ * Khách khác (chưa bị gộp) có tên trùng — KHÔNG phân biệt hoa/thường
+ * (vd "A/c Tuấn" ≡ "A/c tuấn"), để nhân viên không lỡ tạo trùng nữa.
+ */
+const findSameName = (name: string, excludeId?: string) =>
+  prisma.customer.findFirst({
+    where: {
+      name: { equals: name, mode: 'insensitive' },
+      mergedIntoId: null,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+    select: { id: true, name: true },
+  });
+
 export const customerService = {
   async list(params: { search?: string; sort?: 'recent' | 'orders'; page: number; pageSize: number }) {
     const { search, sort, page, pageSize } = params;
-    let where: Prisma.CustomerWhereInput = {};
+    // Bỏ các bản trùng đã gộp vào khách khác
+    let where: Prisma.CustomerWhereInput = { mergedIntoId: null };
     if (search) {
       // Tìm không dấu: unaccent(name) khớp cả khi gõ có dấu lẫn không dấu
       const rows = await prisma.$queryRaw<{ id: string }[]>`
@@ -18,7 +36,7 @@ export const customerService = {
         WHERE unaccent(LOWER(name)) LIKE unaccent(LOWER(${`%${search}%`}))
            OR phone LIKE ${`%${search}%`}
       `;
-      where = { id: { in: rows.map((r) => r.id) } };
+      where = { mergedIntoId: null, id: { in: rows.map((r) => r.id) } };
     }
 
     const [total, items] = await Promise.all([
@@ -56,11 +74,11 @@ export const customerService = {
   async create(input: CreateCustomerInput) {
     // Phone rỗng → null để nhiều khách không SĐT không đụng ràng buộc @unique
     const phone = input.phone?.trim() ? input.phone.trim() : null;
-    const name = input.name.trim();
+    const name = normalizeName(input.name);
     // Chặn trùng tên CHÍNH XÁC (nhân viên hay lỡ tạo trùng), trong phạm vi tiệm hiện tại
-    const dup = await prisma.customer.findFirst({ where: { name } });
+    const dup = await findSameName(name);
     if (dup) {
-      throw new BadRequestError(`Đã có khách hàng tên "${name}". Không thể tạo trùng tên.`);
+      throw new BadRequestError(`Đã có khách hàng tên "${dup.name}". Không thể tạo trùng tên.`);
     }
     try {
       return await prisma.customer.create({
@@ -82,12 +100,12 @@ export const customerService = {
       data.phone = input.phone?.trim() ? input.phone.trim() : null;
     }
     if (typeof input.name === 'string') {
-      const name = input.name.trim();
+      const name = normalizeName(input.name);
       data.name = name;
       // Nếu đổi tên trùng với khách KHÁC → chặn
-      const dup = await prisma.customer.findFirst({ where: { name } });
-      if (dup && dup.id !== id) {
-        throw new BadRequestError(`Đã có khách hàng tên "${name}". Không thể đổi trùng tên.`);
+      const dup = await findSameName(name, id);
+      if (dup) {
+        throw new BadRequestError(`Đã có khách hàng tên "${dup.name}". Không thể đổi trùng tên.`);
       }
     }
     try {
