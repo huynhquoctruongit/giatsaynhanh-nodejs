@@ -23,6 +23,7 @@ export const productService = {
   }) {
     const { search, isActive, page, pageSize } = params;
     const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
       ...(isActive !== undefined ? { isActive } : {}),
       ...(search ? { name: { contains: search } } : {}),
     };
@@ -65,11 +66,19 @@ export const productService = {
     });
   },
 
+  /**
+   * Xoá dịch vụ: chưa từng dùng trong đơn → xoá hẳn; đã có trong đơn cũ → lưu trữ ẩn
+   * (deletedAt) để đơn/báo cáo cũ vẫn giữ liên kết, nhưng biến mất khỏi danh sách.
+   */
   async remove(id: string) {
     await this.getById(id);
+    const used = await prisma.orderItem.count({ where: { productId: id } });
+    if (used === 0) {
+      return prisma.product.delete({ where: { id } });
+    }
     return prisma.product.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, deletedAt: new Date() },
     });
   },
 

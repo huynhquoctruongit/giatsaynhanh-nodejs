@@ -58,6 +58,8 @@ export const listOrderSchema = z.object({
     search: z.string().optional(),
     status: z.nativeEnum(OrderStatus).optional(),
     customerId: z.string().uuid().optional(),
+    // Lọc theo loại dịch vụ (đơn có dùng dịch vụ này)
+    productId: z.string().uuid().optional(),
     // Lọc đơn đặt (giao tận nhà): ?fromBooking=true
     fromBooking: z
       .union([z.literal('true'), z.literal('false')])

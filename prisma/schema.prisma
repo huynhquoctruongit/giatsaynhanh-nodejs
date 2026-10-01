@@ -114,6 +114,8 @@ model User {
 
   orders         Order[]           @relation("CreatedOrders")
   assignedOrders Order[]           @relation("AssignedOrders")
+  debtMarkedOrders Order[]         @relation("DebtMarkedOrders")
+  paidOrders     Order[]           @relation("PaidOrders")
   scanHistories  ScanHistory[]
   transactions   Transaction[]
   inventoryLogs  InventoryLog[]
@@ -162,6 +164,9 @@ model Product {
   isActive         Boolean  @default(true)
   hiddenFromBooking Boolean @default(false) // ẩn khỏi web đặt lịch (dịch vụ nội bộ: Phụ thu...)
   sortOrder        Int      @default(0) // độ ưu tiên hiển thị (nhỏ = lên trên); kéo-thả ở màn dịch vụ
+  // Đã xoá nhưng còn trong đơn cũ → ẩn khỏi mọi danh sách, giữ lại cho lịch sử đơn/báo cáo.
+  // (isActive=false chỉ là "Tạm ngưng", vẫn hiện ở màn dịch vụ để bật lại)
+  deletedAt        DateTime?
   note             String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -204,6 +209,13 @@ model Order {
 
   assignedToId String?
   assignedTo   User?   @relation("AssignedOrders", fields: [assignedToId], references: [id])
+
+  // Đơn nợ: ai bấm "Đơn nợ" lúc nào / ai bấm "Đã thanh toán" lúc nào (giữ cả 2 sau khi trả nợ)
+  debtMarkedAt   DateTime?
+  debtMarkedById String?
+  debtMarkedBy   User?     @relation("DebtMarkedOrders", fields: [debtMarkedById], references: [id])
+  paidById       String?
+  paidBy         User?     @relation("PaidOrders", fields: [paidById], references: [id])
 
   items         OrderItem[]
   scanHistories ScanHistory[]

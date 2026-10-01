@@ -14,7 +14,24 @@ export const orderController = {
       const d = new Date(v);
       return isNaN(d.getTime()) ? undefined : d;
     };
+    const productId = typeof req.query.productId === 'string' && /^[0-9a-f-]{36}$/i.test(req.query.productId)
+      ? req.query.productId
+      : undefined;
     const data = await orderService.statusCounts({
+      dateFrom: parse(req.query.dateFrom),
+      dateTo: parse(req.query.dateTo),
+      productId,
+    });
+    res.json({ success: true, data });
+  }),
+
+  productCounts: asyncHandler(async (req: Request, res: Response) => {
+    const parse = (v: unknown) => {
+      if (typeof v !== 'string') return undefined;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+    const data = await orderService.productCounts({
       dateFrom: parse(req.query.dateFrom),
       dateTo: parse(req.query.dateTo),
     });
@@ -26,6 +43,7 @@ export const orderController = {
       search?: string;
       status?: OrderStatus;
       customerId?: string;
+      productId?: string;
       fromBooking?: boolean;
       debt?: boolean;
       dateFrom?: Date;
@@ -77,7 +95,16 @@ export const orderController = {
   }),
 
   setPayment: asyncHandler(async (req: Request, res: Response) => {
-    const order = await orderService.setPayment(req.params.id, req.body.paid);
+    const order = await orderService.setPayment(req.params.id, req.body.paid, req.user?.sub);
+    // Lịch sử đơn: ghi lại lần bấm "Đơn nợ" / "Đã thanh toán" (kèm số tiền)
+    await scanHistoryService.log({
+      orderId: order.id,
+      userId: req.user?.sub,
+      action: req.body.paid ? 'MARK_PAID' : 'MARK_DEBT',
+      ip: req.ip,
+      userAgent: req.header('user-agent') ?? undefined,
+      meta: { amount: Number(order.totalAmount) - Number(order.discountAmount ?? 0) },
+    });
     res.json({ success: true, data: toOrderResponse(order) });
   }),
 

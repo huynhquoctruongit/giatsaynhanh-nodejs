@@ -2,11 +2,14 @@ import type { Booking, Order, OrderItem, Customer, User } from '@prisma/client';
 import { buildQrUrl } from '../utils/qr';
 
 type AssignedTo = Pick<User, 'id' | 'name'> | null;
+const userRef = (u: AssignedTo | undefined) => (u ? { id: u.id, name: u.name } : null);
 
 type OrderWith = Order & {
   items?: OrderItem[];
   customer?: Customer | null;
   assignedTo?: AssignedTo;
+  debtMarkedBy?: AssignedTo;
+  paidBy?: AssignedTo;
   bookingFromConvert?: Pick<Booking, 'id' | 'code'> | null;
 };
 
@@ -20,6 +23,12 @@ export const toOrderResponse = (order: OrderWith) => ({
   pickupAt: order.pickupAt,
   deliveredAt: order.deliveredAt,
   paidAt: order.paidAt,
+  paidBy: userRef(order.paidBy),
+  // Lần bấm "Đơn nợ" gần nhất (giữ lại cả sau khi đã thu nợ)
+  debtMarkedAt: order.debtMarkedAt,
+  debtMarkedBy: userRef(order.debtMarkedBy),
+  // Tổng khách đã chuyển khoản cho đơn (khớp tự động từ GPM Pay) → nhãn "Đã CK"
+  transferredAmount: Number(order.transferredAmount ?? 0),
   // Đơn nợ = đã giao nhưng CHƯA thu tiền (treo, chưa vào lợi nhuận)
   isDebt: order.status === 'DELIVERED' && order.paidAt == null,
   createdAt: order.createdAt,

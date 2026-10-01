@@ -17,6 +17,8 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 export const ScanAction = {
   VIEW: 'VIEW',
   UPDATE_STATUS: 'UPDATE_STATUS',
+  MARK_DEBT: 'MARK_DEBT', // nhân viên bấm "Đơn nợ"
+  MARK_PAID: 'MARK_PAID', // nhân viên bấm "Đã thanh toán" (thu nợ)
 } as const;
 export type ScanAction = (typeof ScanAction)[keyof typeof ScanAction];
 

@@ -22,6 +22,8 @@ const orderInclude = {
   items: true,
   customer: true,
   assignedTo: { select: { id: true, name: true } },
+  debtMarkedBy: { select: { id: true, name: true } },
+  paidBy: { select: { id: true, name: true } },
   bookingFromConvert: { select: { id: true, code: true } },
 } satisfies Prisma.OrderInclude;
 
@@ -48,8 +50,10 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 export const orderService = {
   /** Đếm số đơn theo từng trạng thái (chips màn danh sách). Lọc theo ngày nếu có. */
-  async statusCounts(params?: { dateFrom?: Date; dateTo?: Date }): Promise<Record<string, number>> {
-    const { dateFrom, dateTo } = params ?? {};
+  async statusCounts(params?: { dateFrom?: Date; dateTo?: Date; productId?: string }): Promise<Record<string, number>> {
+    const { dateFrom, dateTo, productId } = params ?? {};
+    // Lọc theo loại dịch vụ: đơn có ít nhất 1 dòng dùng dịch vụ đó
+    const byProduct: Prisma.OrderWhereInput = productId ? { items: { some: { productId } } } : {};
     const range =
       dateFrom || dateTo
         ? { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) }
@@ -60,9 +64,9 @@ export const orderService = {
     const delivered = range ? { deliveredAt: range } : {};
 
     const [groups, bookingCount, deliveredCount] = await Promise.all([
-      prisma.order.groupBy({ by: ['status'], where: created, _count: { id: true } }),
-      prisma.order.count({ where: { bookingFromConvert: { isNot: null }, ...created } }),
-      prisma.order.count({ where: { status: OrderStatus.DELIVERED, ...delivered } }),
+      prisma.order.groupBy({ by: ['status'], where: { ...created, ...byProduct }, _count: { id: true } }),
+      prisma.order.count({ where: { bookingFromConvert: { isNot: null }, ...created, ...byProduct } }),
+      prisma.order.count({ where: { status: OrderStatus.DELIVERED, ...delivered, ...byProduct } }),
     ]);
     const counts: Record<string, number> = {};
     let allSum = 0;
@@ -79,10 +83,51 @@ export const orderService = {
     return counts;
   },
 
+  /**
+   * Số đơn theo từng loại dịch vụ trong khoảng ngày (cùng cách tính tab "Tất cả":
+   * đơn chưa giao theo ngày tạo + đơn đã giao theo ngày giao), nhiều → ít.
+   * Dùng cho dropdown "Loại dịch vụ" ở trang Đơn hàng.
+   */
+  async productCounts(params: { dateFrom?: Date; dateTo?: Date }) {
+    const { dateFrom, dateTo } = params;
+    const range =
+      dateFrom || dateTo ? { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) } : undefined;
+    const items = await prisma.orderItem.findMany({
+      where: {
+        productId: { not: null },
+        ...(range
+          ? {
+              order: {
+                OR: [
+                  { status: { not: OrderStatus.DELIVERED }, createdAt: range },
+                  { status: OrderStatus.DELIVERED, deliveredAt: range },
+                ],
+              },
+            }
+          : {}),
+      },
+      select: { productId: true, orderId: true, product: { select: { name: true } } },
+    });
+    const map = new Map<string, { productId: string; name: string; orders: Set<string> }>();
+    for (const i of items) {
+      if (!i.productId) continue;
+      let row = map.get(i.productId);
+      if (!row) {
+        row = { productId: i.productId, name: i.product?.name ?? '', orders: new Set() };
+        map.set(i.productId, row);
+      }
+      row.orders.add(i.orderId);
+    }
+    return [...map.values()]
+      .map((r) => ({ productId: r.productId, name: r.name, orderCount: r.orders.size }))
+      .sort((a, b) => b.orderCount - a.orderCount || a.name.localeCompare(b.name, 'vi'));
+  },
+
   async list(params: {
     search?: string;
     status?: OrderStatus;
     customerId?: string;
+    productId?: string;
     fromBooking?: boolean;
     debt?: boolean;
     dateFrom?: Date;
@@ -90,7 +135,7 @@ export const orderService = {
     page: number;
     pageSize: number;
   }) {
-    const { search, status, customerId, fromBooking, debt, dateFrom, dateTo, page, pageSize } = params;
+    const { search, status, customerId, productId, fromBooking, debt, dateFrom, dateTo, page, pageSize } = params;
 
     // Lọc theo NGÀY TẠO cho mọi tab (đồng nhất với chips). Riêng tab "Đã giao"
     // chỉ khác ở SẮP XẾP: theo giờ giao mới nhất.
@@ -118,6 +163,8 @@ export const orderService = {
     const where: Prisma.OrderWhereInput = {
       ...(status ? { status } : {}),
       ...(customerId ? { customerId } : {}),
+      // Lọc theo loại dịch vụ: đơn có ít nhất 1 dòng dùng dịch vụ đó
+      ...(productId ? { items: { some: { productId } } } : {}),
       ...(fromBooking ? { bookingFromConvert: { isNot: null } } : {}),
       // Đơn nợ: đã giao nhưng chưa thu tiền (paidAt null)
       ...(debt ? { status: OrderStatus.DELIVERED, paidAt: null } : {}),
@@ -342,11 +389,16 @@ export const orderService = {
    *  - paid=false → ĐƠN NỢ: paidAt=null (treo, KHÔNG vào lợi nhuận)
    *  - paid=true  → ĐÃ THANH TOÁN: paidAt=now (vào lợi nhuận tại ngày thu tiền)
    */
-  async setPayment(id: string, paid: boolean) {
+  async setPayment(id: string, paid: boolean, userId?: string) {
     await this.getById(id);
+    const now = new Date();
     const order = await prisma.order.update({
       where: { id },
-      data: { paidAt: paid ? new Date() : null },
+      // Thu nợ: ghi giờ + người thu (giữ nguyên debtMarkedAt để xem lại đã nợ từ lúc nào).
+      // Đánh dấu nợ: ghi giờ + người bấm, xoá mốc thu tiền cũ.
+      data: paid
+        ? { paidAt: now, paidById: userId ?? null }
+        : { paidAt: null, paidById: null, debtMarkedAt: now, debtMarkedById: userId ?? null },
       include: orderInclude,
     });
     // Push khi đánh dấu ĐƠN NỢ (chưa thu tiền)

@@ -16,6 +16,7 @@ const router = Router();
 router.use(authStaff);
 
 router.get('/status-counts', orderController.statusCounts);
+router.get('/product-counts', orderController.productCounts);
 router.get('/', validate(listOrderSchema), orderController.list);
 router.get('/:id', orderController.detail);
 router.post('/', validate(createOrderSchema), orderController.create);
