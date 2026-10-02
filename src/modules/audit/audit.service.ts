@@ -4,6 +4,8 @@ import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError } from '../../helpers/utils/errors';
 import { todayVN } from '../cash-closing/cash-closing.service';
 import { scanHistoryService } from '../qr/scan-history.service';
+import { notifyAdmins } from '../../lib/firebase';
+import { fmtVNTime } from '../../helpers/utils/notify-format';
 
 export type AuditResult = 'VERIFIED' | 'ANOMALY';
 
@@ -59,6 +61,9 @@ export const auditService = {
     });
     if (existing) return { duplicate: true, audit: toResponse(existing) };
 
+    // Lần quét đầu tiên của người này hôm nay = "bắt đầu rà soát" → báo chủ tiệm
+    const firstOfUserToday = (await prisma.orderAudit.count({ where: { date, auditedById: userId } })) === 0;
+
     try {
       const created = await prisma.orderAudit.create({
         data: { shopId: getCurrentShopId(), date, orderId: input.orderId, result: input.result, auditedById: userId },
@@ -72,6 +77,16 @@ export const auditService = {
         userAgent: req?.userAgent,
         meta: { result: input.result, date },
       });
+      if (firstOfUserToday) {
+        const onShelf = await prisma.order.count({ where: { status: 'READY' } });
+        void notifyAdmins(
+          prisma,
+          `🔍 ${created.auditedBy.name} bắt đầu rà soát kệ`,
+          `Bắt đầu lúc ${fmtVNTime(created.auditedAt)} · ${onShelf} bịch chờ giao trên kệ`,
+          { type: 'AUDIT_STARTED', userId },
+          userId,
+        );
+      }
       return { duplicate: false, audit: toResponse(created) };
     } catch (e) {
       // 2 máy quét cùng lúc 1 bịch → máy sau đọc lại bản đã ghi

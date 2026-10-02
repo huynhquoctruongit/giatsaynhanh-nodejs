@@ -54,3 +54,31 @@ export async function getActiveTokens(prisma: DB): Promise<string[]> {
   });
   return users.map((u) => u.fcmToken!).filter(Boolean);
 }
+
+/**
+ * Gửi thông báo cho các tài khoản ADMIN (chủ tiệm) của tiệm hiện tại.
+ * `excludeUserId`: người thực hiện — chủ tiệm tự thao tác thì không báo về chính máy mình.
+ * Fire-and-forget: lỗi gửi không làm hỏng nghiệp vụ.
+ */
+export async function notifyAdmins(
+  prisma: DB,
+  title: string,
+  body: string,
+  data?: Record<string, string>,
+  excludeUserId?: string,
+): Promise<void> {
+  try {
+    const admins = await prisma.user.findMany({
+      where: {
+        role: 'ADMIN',
+        isActive: true,
+        fcmToken: { not: null },
+        ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      },
+      select: { fcmToken: true },
+    });
+    await sendPush(admins.map((a) => a.fcmToken!).filter(Boolean), title, body, data);
+  } catch (err) {
+    console.error('[FCM] notifyAdmins error:', err);
+  }
+}

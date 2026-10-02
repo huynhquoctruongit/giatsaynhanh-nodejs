@@ -34,6 +34,7 @@ async function grandTotalOf(order: {
  * Khớp 1 giao dịch tiền vào với đơn theo mã đơn trong nội dung:
  *  - gắn giao dịch vào đơn, cộng dồn Order.transferredAmount
  *  - đủ tiền (>= tổng cần thu) mà đơn chưa thanh toán → tự đánh dấu paidAt = giờ CK
+ *  - đủ tiền mà đơn đang chờ khách lấy (READY) → tự hoàn thành đơn (DELIVERED, như bấm "Done")
  *  - `notify` (giao dịch mới) → báo "đã nhận tiền" tới máy POS quầy như loa
  * Dùng prismaUnscoped vì webhook không có tenant context — luôn lọc shopId thủ công.
  */
@@ -63,6 +64,7 @@ export async function matchTransferToOrder(
       discountAmount: true,
       paidAt: true,
       status: true,
+      readyAt: true,
       customer: { select: { name: true } },
       bookingFromConvert: { select: { id: true } },
     },
@@ -77,12 +79,17 @@ export async function matchTransferToOrder(
   const transferred = Number(sum._sum.amount ?? 0);
   const due = await grandTotalOf(order);
   const fullyPaid = transferred >= due;
+  // Khách CK đủ trên hoá đơn = đã lấy đồ → hoàn thành đơn luôn, mốc giao = giờ CK
+  const autoDeliver = fullyPaid && order.status === 'READY';
 
   await prismaUnscoped.order.update({
     where: { id: order.id },
     data: {
       transferredAmount: transferred,
       ...(fullyPaid && !order.paidAt ? { paidAt: tx.transactionAt } : {}),
+      ...(autoDeliver
+        ? { status: 'DELIVERED', deliveredAt: tx.transactionAt, readyAt: order.readyAt ?? tx.transactionAt }
+        : {}),
     },
   });
 
@@ -94,7 +101,11 @@ export async function matchTransferToOrder(
   const tokens = settings?.posFcmTokens ?? [];
   if (!tokens.length) return;
   const short = order.code.split('-').pop();
-  const status = fullyPaid ? 'đã thanh toán đủ' : `còn thiếu ${fmtMoney(due - transferred)}`;
+  const status = !fullyPaid
+    ? `còn thiếu ${fmtMoney(due - transferred)}`
+    : autoDeliver
+      ? 'đã thanh toán đủ · đã hoàn thành đơn'
+      : 'đã thanh toán đủ';
   await sendPush(
     tokens,
     `💰 Đã nhận ${fmtMoney(Number(tx.amount))}`,

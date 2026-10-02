@@ -1,6 +1,8 @@
 import { prisma } from '../../config/prisma';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { BadRequestError, NotFoundError } from '../../helpers/utils/errors';
+import { notifyAdmins } from '../../lib/firebase';
+import { fmtVNTime } from '../../helpers/utils/notify-format';
 import type { UpdateTimeEntryInput } from '../../helpers/validators/timesheet.schema';
 import {
   HOURLY_RATE_SUNDAY,
@@ -21,18 +23,41 @@ export const timesheetService = {
   async checkIn(userId: string) {
     const open = await this.getCurrent(userId);
     if (open) throw new BadRequestError('Bạn đang trong ca, hãy kết ca trước');
-    return prisma.timeEntry.create({
+    const entry = await prisma.timeEntry.create({
       data: { shopId: getCurrentShopId(), userId, checkIn: new Date() },
+      include: { user: { select: { name: true } } },
     });
+    // Báo chủ tiệm: nhân viên vào ca
+    void notifyAdmins(
+      prisma,
+      `🟢 ${entry.user.name} vào ca`,
+      `Vào ca lúc ${fmtVNTime(entry.checkIn)}`,
+      { type: 'TIME_CHECK_IN', userId },
+      userId,
+    );
+    return entry;
   },
 
   async checkOut(userId: string) {
     const open = await this.getCurrent(userId);
     if (!open) throw new BadRequestError('Bạn chưa vào ca');
-    return prisma.timeEntry.update({
+    const entry = await prisma.timeEntry.update({
       where: { id: open.id },
       data: { checkOut: new Date() },
+      include: { user: { select: { name: true } } },
     });
+    // Báo chủ tiệm: nhân viên kết ca + số giờ làm (thực tế và giờ tính lương đã làm tròn 30')
+    const realHours = (entry.checkOut!.getTime() - entry.checkIn.getTime()) / 3_600_000;
+    const pay = calcEntryPay(entry.checkIn, entry.checkOut);
+    const fmtH = (h: number) => `${h.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}h`;
+    void notifyAdmins(
+      prisma,
+      `🔴 ${entry.user.name} kết ca`,
+      `Kết ca lúc ${fmtVNTime(entry.checkOut!)} · làm ${fmtH(realHours)} (vào ${fmtVNTime(entry.checkIn).slice(0, 5)}) · tính lương ${fmtH(pay.hours)}`,
+      { type: 'TIME_CHECK_OUT', userId },
+      userId,
+    );
+    return entry;
   },
 
   /** ADMIN sửa giờ vào/ra của 1 ca chấm công. */
