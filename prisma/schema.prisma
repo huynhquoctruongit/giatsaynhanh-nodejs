@@ -90,6 +90,7 @@ model Shop {
   shiftAttendances    ShiftAttendance[]
   timeEntries         TimeEntry[]
   cashClosings        CashClosing[]
+  orderAudits         OrderAudit[]
   settings            ShopSettings?
   bankTransactions    BankTransaction[]
   bankAccountMappings BankAccountShopMapping[]
@@ -123,6 +124,7 @@ model User {
   attendances    ShiftAttendance[]
   timeEntries    TimeEntry[]
   cashClosings   CashClosing[]
+  orderAudits    OrderAudit[]
 
   // Email không còn unique toàn cục — 2 tiệm khác nhau được phép dùng trùng
   // email (mỗi tiệm là 1 khách hàng thương mại độc lập của bạn).
@@ -226,6 +228,7 @@ model Order {
   // Tổng tiền khách đã chuyển khoản cho đơn (khớp tự động từ GPM Pay)
   transferredAmount Decimal           @default(0) @db.Decimal(14, 2)
   bankTransactions  BankTransaction[]
+  audits            OrderAudit[]
 
   bookingsAsSource   Booking[] @relation("BookingSource")
   bookingFromConvert Booking?  @relation("BookingConverted")
@@ -474,6 +477,25 @@ model Shift {
   @@index([shopId])
   @@index([isOpen])
   @@index([createdAt])
+}
+
+// Rà soát kệ cuối ngày: mỗi đơn quét 1 lần/ngày (nhiều máy quét song song, đồng bộ qua API).
+// VERIFIED = bịch có trên kệ & đúng là chờ giao; ANOMALY = đơn đã giao nhưng bịch vẫn trên kệ.
+model OrderAudit {
+  id          String   @id @default(uuid())
+  date        String // "YYYY-MM-DD" theo giờ VN
+  result      String   @default("VERIFIED") // VERIFIED | ANOMALY
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  auditedById String
+  auditedBy   User     @relation(fields: [auditedById], references: [id])
+  auditedAt   DateTime @default(now())
+
+  shopId String
+  shop   Shop   @relation(fields: [shopId], references: [id])
+
+  @@unique([orderId, date])
+  @@index([shopId, date])
 }
 
 // Chốt két cuối ngày (1 lần/ngày/tiệm). Hệ thống tự tính tiền mặt phải có:

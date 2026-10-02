@@ -19,6 +19,7 @@ export const ScanAction = {
   UPDATE_STATUS: 'UPDATE_STATUS',
   MARK_DEBT: 'MARK_DEBT', // nhân viên bấm "Đơn nợ"
   MARK_PAID: 'MARK_PAID', // nhân viên bấm "Đã thanh toán" (thu nợ)
+  AUDIT: 'AUDIT', // quét bịch khi rà soát kệ cuối ngày
 } as const;
 export type ScanAction = (typeof ScanAction)[keyof typeof ScanAction];
 

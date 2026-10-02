@@ -19,6 +19,7 @@ import { staffRouter } from './modules/staff/staff.routes';
 import { supplierRouter } from './modules/supplier/supplier.routes';
 import { timesheetRouter } from './modules/timesheet/timesheet.routes';
 import { cashClosingRouter } from './modules/cash-closing/cash-closing.routes';
+import { auditRouter } from './modules/audit/audit.routes';
 
 const router = Router();
 
@@ -89,5 +90,6 @@ router.use('/staff', staffRouter);
 router.use('/suppliers', supplierRouter);
 router.use('/timesheet', timesheetRouter);
 router.use('/cash-closings', cashClosingRouter);
+router.use('/audits', auditRouter);
 
 export { router as apiRouter };
