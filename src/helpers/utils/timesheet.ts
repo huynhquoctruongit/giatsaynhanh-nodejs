@@ -39,3 +39,28 @@ export function calcEntryPay(checkIn: Date, checkOut: Date | null) {
   const rate = sunday ? HOURLY_RATE_SUNDAY : HOURLY_RATE_WEEKDAY;
   return { roundedIn, roundedOut, hours, isSunday: sunday, rate, amount: hours * rate };
 }
+
+const DAY_MS = 24 * HOUR_MS;
+const ymd = (utcMs: number) => new Date(utcMs).toISOString().slice(0, 10);
+
+/**
+ * Các tuần lương (Thứ 2 → Chủ nhật, giờ VN) thuộc 1 tháng: tuần thuộc tháng có NGÀY CHỦ NHẬT
+ * cuối tuần (ngày trả lương). Vd tuần 29/09–05/10 thuộc tháng 10. Nhờ vậy cộng các tuần
+ * = đúng số đã trả trong tháng, không tuần nào bị cắt đôi giữa 2 tháng.
+ */
+export function payWeeksOfMonthVN(month: string) {
+  const [y, m] = month.split('-').map(Number);
+  const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(); // 0 = CN
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const weeks: Array<{ start: string; end: string; from: Date; to: Date }> = [];
+  for (let sunday = 1 + ((7 - firstDow) % 7); sunday <= daysInMonth; sunday += 7) {
+    const sundayUtc = Date.UTC(y, m - 1, sunday);
+    weeks.push({
+      start: ymd(sundayUtc - 6 * DAY_MS),
+      end: ymd(sundayUtc),
+      from: new Date(sundayUtc - 6 * DAY_MS - VN_OFFSET_MS),
+      to: new Date(sundayUtc + DAY_MS - VN_OFFSET_MS),
+    });
+  }
+  return weeks;
+}

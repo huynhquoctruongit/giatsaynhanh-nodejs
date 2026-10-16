@@ -8,7 +8,7 @@ import {
   HOURLY_RATE_SUNDAY,
   HOURLY_RATE_WEEKDAY,
   calcEntryPay,
-  monthRangeVN,
+  payWeeksOfMonthVN,
 } from '../../helpers/utils/timesheet';
 
 export const timesheetService = {
@@ -84,57 +84,60 @@ export const timesheetService = {
   },
 
   /**
-   * Thống kê tháng: mỗi nhân viên 1 dòng tổng + danh sách ca (đã làm tròn 30').
-   * `userId` undefined = tất cả nhân viên (chỉ ADMIN được gọi kiểu này).
+   * Thống kê lương theo TUẦN (Thứ 2 → CN) của 1 tháng + tổng tháng. Tuần thuộc tháng có ngày
+   * Chủ nhật cuối tuần (xem payWeeksOfMonthVN). Mỗi tuần: tổng + từng nhân viên + danh sách ca
+   * (đã làm tròn 30'). `userId` undefined = tất cả nhân viên (chỉ ADMIN được gọi kiểu này).
    */
   async monthly(month: string, userId?: string) {
-    const { from, to } = monthRangeVN(month);
+    const weeks = payWeeksOfMonthVN(month);
+    const from = weeks[0].from;
+    const to = weeks[weeks.length - 1].to;
     const entries = await prisma.timeEntry.findMany({
       where: { checkIn: { gte: from, lt: to }, ...(userId ? { userId } : {}) },
       orderBy: { checkIn: 'asc' },
       include: { user: { select: { id: true, name: true } } },
     });
 
-    const byUser = new Map<
-      string,
-      {
-        userId: string;
-        name: string;
-        totalHours: number;
-        totalAmount: number;
-        entries: Array<{
-          id: string;
-          checkIn: Date;
-          checkOut: Date | null;
-          roundedIn: Date;
-          roundedOut: Date | null;
-          hours: number;
-          isSunday: boolean;
-          rate: number;
-          amount: number;
-        }>;
+    type Entry = ReturnType<typeof calcEntryPay> & { id: string; checkIn: Date; checkOut: Date | null };
+    type UserRow = { userId: string; name: string; totalHours: number; totalAmount: number; entries: Entry[] };
+    const group = (list: typeof entries) => {
+      const byUser = new Map<string, UserRow>();
+      for (const e of list) {
+        const pay = calcEntryPay(e.checkIn, e.checkOut);
+        let row = byUser.get(e.userId);
+        if (!row) {
+          row = { userId: e.userId, name: e.user.name, totalHours: 0, totalAmount: 0, entries: [] };
+          byUser.set(e.userId, row);
+        }
+        row.totalHours += pay.hours;
+        row.totalAmount += pay.amount;
+        row.entries.push({ id: e.id, checkIn: e.checkIn, checkOut: e.checkOut, ...pay });
       }
-    >();
+      const users = [...byUser.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+      return {
+        totalHours: users.reduce((s, u) => s + u.totalHours, 0),
+        totalAmount: users.reduce((s, u) => s + u.totalAmount, 0),
+        users,
+      };
+    };
 
-    for (const e of entries) {
-      const pay = calcEntryPay(e.checkIn, e.checkOut);
-      let row = byUser.get(e.userId);
-      if (!row) {
-        row = { userId: e.userId, name: e.user.name, totalHours: 0, totalAmount: 0, entries: [] };
-        byUser.set(e.userId, row);
-      }
-      row.totalHours += pay.hours;
-      row.totalAmount += pay.amount;
-      row.entries.push({ id: e.id, checkIn: e.checkIn, checkOut: e.checkOut, ...pay });
-    }
-
-    const users = [...byUser.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+    const now = new Date();
     return {
       month,
+      from: weeks[0].start,
+      to: weeks[weeks.length - 1].end,
       rates: { weekday: HOURLY_RATE_WEEKDAY, sunday: HOURLY_RATE_SUNDAY },
-      totalHours: users.reduce((s, u) => s + u.totalHours, 0),
-      totalAmount: users.reduce((s, u) => s + u.totalAmount, 0),
-      users,
+      // Tổng tháng (= cộng các tuần) + từng nhân viên cả tháng
+      ...group(entries),
+      // Mới nhất trước; bỏ các tuần chưa tới
+      weeks: weeks
+        .filter((w) => w.from <= now)
+        .map((w) => ({
+          start: w.start,
+          end: w.end,
+          ...group(entries.filter((e) => e.checkIn >= w.from && e.checkIn < w.to)),
+        }))
+        .reverse(),
     };
   },
 };
