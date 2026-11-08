@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { removeFromPosLists } from '../../lib/firebase';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
@@ -133,6 +134,8 @@ export const bankService = {
     const others = settings.posFcmTokens.filter((t) => t !== token);
     const posFcmTokens = enabled ? [...others, token].slice(-5) : others;
     await prisma.shopSettings.update({ where: { shopId }, data: { posFcmTokens } });
+    // 1 máy POS chỉ báo tiền cho tiệm đang đăng nhập — gỡ khỏi các tiệm khác.
+    if (enabled) await removeFromPosLists([token], shopId);
     return { enabled };
   },
 
@@ -157,6 +160,68 @@ export const bankService = {
         counterName: t.counterName,
         gateway: t.gateway,
         transactionAt: t.transactionAt,
+      })),
+    };
+  },
+
+  /**
+   * Lịch sử chuyển khoản VÀO theo khoảng ngày VN (from/to dạng YYYY-MM-DD, gồm cả 2 đầu),
+   * lọc theo nội dung / tên người chuyển / mã đơn, phân trang. Tổng tiền tính trên cả khoảng lọc.
+   */
+  async history(params: { from?: string; to?: string; q?: string; page?: number; pageSize?: number }) {
+    const ymd = /^\d{4}-\d{2}-\d{2}$/;
+    const vnStart = (d: string) => new Date(`${d}T00:00:00+07:00`);
+    const today = new Date(Date.now() + VN_OFFSET_MS).toISOString().slice(0, 10);
+    const from = params.from && ymd.test(params.from) ? params.from : today;
+    const to = params.to && ymd.test(params.to) ? params.to : from;
+    const start = vnStart(from <= to ? from : to);
+    const end = new Date(vnStart(from <= to ? to : from).getTime() + 24 * 60 * 60 * 1000 - 1);
+    const page = Math.max(1, Number(params.page) || 1);
+    const pageSize = Math.min(200, Math.max(1, Number(params.pageSize) || 50));
+    const q = params.q?.trim();
+
+    const where = {
+      shopId: getCurrentShopId(),
+      direction: 'IN',
+      transactionAt: { gte: start, lte: end },
+      ...(q
+        ? {
+            OR: [
+              { content: { contains: q, mode: 'insensitive' as const } },
+              { counterName: { contains: q, mode: 'insensitive' as const } },
+              { order: { code: { contains: q, mode: 'insensitive' as const } } },
+            ],
+          }
+        : {}),
+    };
+    const [items, agg] = await Promise.all([
+      prisma.bankTransaction.findMany({
+        where,
+        orderBy: { transactionAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { order: { select: { id: true, code: true, customer: { select: { name: true } } } } },
+      }),
+      prisma.bankTransaction.aggregate({ where, _sum: { amount: true }, _count: true }),
+    ]);
+    return {
+      from,
+      to,
+      total: Number(agg._sum.amount ?? 0),
+      count: agg._count,
+      page,
+      pageSize,
+      items: items.map((t) => ({
+        id: t.id,
+        amount: Number(t.amount),
+        content: t.content,
+        counterName: t.counterName,
+        counterAccount: t.counterAccount,
+        gateway: t.gateway,
+        transactionAt: t.transactionAt,
+        order: t.order
+          ? { id: t.order.id, code: t.order.code, customerName: t.order.customer?.name ?? null }
+          : null,
       })),
     };
   },

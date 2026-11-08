@@ -19,5 +19,17 @@ export const registerSchema = z.object({
   }),
 });
 
+export const linkShopSchema = z.object({
+  body: z.object({
+    email: z.string().email(),
+    password: z.string().min(6),
+  }),
+});
+
+export const switchShopSchema = z.object({
+  body: z.object({ shopId: z.string().uuid() }),
+});
+
+export type LinkShopInput = z.infer<typeof linkShopSchema>['body'];
 export type LoginInput = z.infer<typeof loginSchema>['body'];
 export type RegisterInput = z.infer<typeof registerSchema>['body'];

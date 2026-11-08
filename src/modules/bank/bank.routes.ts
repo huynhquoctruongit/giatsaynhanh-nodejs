@@ -15,6 +15,7 @@ router.get('/webhooks/gpmpay/:token', bankController.pingByToken);
 
 // STAFF — hiển thị + đối soát
 router.get('/bank/today', authStaff, bankController.getToday);
+router.get('/bank/transactions', authStaff, bankController.history);
 router.post('/bank/sync', authStaff, bankController.sync);
 // Máy POS quầy (Sunmi) đăng ký nhận báo tiền chuyển khoản theo đơn
 router.put('/bank/pos-device', authStaff, bankController.setPosDevice);

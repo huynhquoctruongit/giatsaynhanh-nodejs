@@ -22,6 +22,13 @@ export const updateSettingsSchema = z.object({
     openingHours: z.string().nullable().optional(),
     invoiceNote: z.string().nullable().optional(),
     smallOrderNote: z.string().nullable().optional(),
+    invoiceSubtitle: z.string().max(100).nullable().optional(),
+    promoEnabled: z.boolean().optional(),
+    promoType: z.enum(['PERCENT', 'AMOUNT']).optional(),
+    promoValue: z.coerce.number().min(0).max(100_000_000).optional(),
+    promoStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày dạng YYYY-MM-DD').nullable().optional(),
+    promoEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày dạng YYYY-MM-DD').nullable().optional(),
+    promoLabel: z.string().max(50).nullable().optional(),
     bankBin: z.string().nullable().optional(),
     bankAccountNumber: z.string().nullable().optional(),
     bankAccountName: z.string().nullable().optional(),
@@ -38,7 +45,15 @@ export const updateSettingsSchema = z.object({
     openingCash: z.number().min(0).max(100_000_000).optional(),
     defaultExpenses: z.number().min(0).max(10_000_000).optional(),
     closeTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Giờ đóng cửa dạng HH:mm').optional(),
-  }),
+  })
+    .refine((b) => !(b.promoType === 'PERCENT' && (b.promoValue ?? 0) > 100), {
+      message: 'Giảm theo % tối đa 100',
+      path: ['promoValue'],
+    })
+    .refine((b) => !(b.promoStartDate && b.promoEndDate && b.promoStartDate > b.promoEndDate), {
+      message: 'Ngày kết thúc phải sau ngày bắt đầu',
+      path: ['promoEndDate'],
+    }),
 });
 
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>['body'];

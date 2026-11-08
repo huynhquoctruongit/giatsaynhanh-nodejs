@@ -1,3 +1,4 @@
+import { calcPromoDiscount, isPromoActive } from '../../helpers/utils/promo';
 import { Prisma } from '@prisma/client';
 import { OrderStatus } from '../../helpers/enums';
 import { prisma } from '../../config/prisma';
@@ -47,6 +48,13 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   DELIVERED: [OrderStatus.READY],
   CANCELLED: [],
 };
+
+/** Cài đặt đợt giảm giá của tiệm hiện tại (ShopSettings không tự scope → lọc shopId tay). */
+const promoSettings = () =>
+  prisma.shopSettings.findUnique({
+    where: { shopId: getCurrentShopId() },
+    select: { promoEnabled: true, promoType: true, promoValue: true, promoStartDate: true, promoEndDate: true },
+  });
 
 export const orderService = {
   /** Đếm số đơn theo từng trạng thái (chips màn danh sách). Lọc theo ngày nếu có. */
@@ -247,7 +255,11 @@ export const orderService = {
     if (!customer) throw new NotFoundError('Customer not found');
 
     const total = calcTotal(input.items);
-    const discountAmount = input.discountAmount ?? 0;
+    // Nhập tay giảm giá (>0) thì dùng số đó; không thì áp đợt giảm giá đang chạy (khai trương…)
+    const discountAmount =
+      input.discountAmount && input.discountAmount > 0
+        ? input.discountAmount
+        : calcPromoDiscount(await promoSettings(), total);
 
     const order = await prisma.order.create({
       data: {
@@ -298,6 +310,13 @@ export const orderService = {
     }
 
     const total = input.items ? calcTotal(input.items) : undefined;
+    // Sửa món của đơn tạo trong đợt giảm giá → tính lại tiền giảm theo tổng mới
+    // (trừ khi gửi kèm discountAmount nhập tay).
+    let promoDiscount: number | undefined;
+    if (total !== undefined && input.discountAmount === undefined) {
+      const ps = await promoSettings();
+      if (isPromoActive(ps, order.createdAt)) promoDiscount = calcPromoDiscount(ps, total, order.createdAt);
+    }
 
     return prisma.$transaction(async (tx) => {
       if (input.items) {
@@ -322,6 +341,7 @@ export const orderService = {
           pickupAt: input.pickupAt,
           ...(total !== undefined ? { totalAmount: total } : {}),
           ...(input.discountAmount !== undefined ? { discountAmount: input.discountAmount } : {}),
+          ...(promoDiscount !== undefined ? { discountAmount: promoDiscount } : {}),
           ...(input.assignedToId !== undefined ? { assignedToId: input.assignedToId } : {}),
         },
         include: orderInclude,

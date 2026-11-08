@@ -2,6 +2,7 @@ import { prisma, prismaUnscoped } from '../../config/prisma';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
 import { NotFoundError } from '../../helpers/utils/errors';
 import { buildBookingQrUrl } from '../../helpers/utils/qr';
+import { isPromoActive } from '../../helpers/utils/promo';
 import { daysRemaining } from '../../helpers/utils/subscription';
 import type { UpdateSettingsInput } from '../../helpers/validators/settings.schema';
 
@@ -36,6 +37,7 @@ export const settingsService = {
       const settings = hidePrivate(raw);
       return {
         ...settings,
+        promoActiveNow: isPromoActive(settings),
         shopSlug: shop.slug,
         bookingQrUrl: buildBookingQrUrl(shop.slug),
         subscriptionEndsAt: shop.subscriptionEndsAt,
@@ -51,6 +53,7 @@ export const settingsService = {
     });
     return {
       ...hidePrivate(created),
+      promoActiveNow: isPromoActive(created),
       shopSlug: shop.slug,
       bookingQrUrl: buildBookingQrUrl(shop.slug),
       subscriptionEndsAt: shop.subscriptionEndsAt,
@@ -90,6 +93,7 @@ export const settingsService = {
     });
     return {
       ...hidePrivate(updated),
+      promoActiveNow: isPromoActive(updated),
       shopSlug: existing.shopSlug,
       bookingQrUrl: existing.bookingQrUrl,
       subscriptionEndsAt: existing.subscriptionEndsAt,

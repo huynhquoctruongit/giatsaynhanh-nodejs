@@ -111,6 +111,19 @@ export const bankController = {
     res.json({ success: true, data });
   }),
 
+  /** Lịch sử chuyển khoản có lọc ngày: ?from=YYYY-MM-DD&to=YYYY-MM-DD&q=&page=&pageSize= */
+  history: asyncHandler(async (req: Request, res: Response) => {
+    const { from, to, q, page, pageSize } = req.query as Record<string, string | undefined>;
+    const data = await bankService.history({
+      from,
+      to,
+      q,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
+    res.json({ success: true, data });
+  }),
+
   /** Đối soát thủ công từ REST GPM Pay (staff). */
   sync: asyncHandler(async (_req: Request, res: Response) => {
     const data = await bankService.syncFromApi();

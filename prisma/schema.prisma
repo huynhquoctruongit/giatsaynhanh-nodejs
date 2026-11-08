@@ -107,6 +107,11 @@ model User {
   orderViewTimeLimit String   @default("unlimited") // unlimited | 1d | 2d | 1w | 10d | 1m | 45d | 3m | 6m
   isActive           Boolean  @default(true)
   fcmToken           String?  // Firebase Cloud Messaging device token
+  // Nhóm tài khoản ADMIN của cùng 1 chủ ở nhiều tiệm (mỗi tiệm 1 User riêng).
+  // Các User cùng accountGroupId (đều là ADMIN) được đổi tiệm qua lại không cần
+  // đăng nhập lại — xem POST /auth/switch-shop. Chỉ set qua /auth/linked-shops
+  // sau khi xác minh mật khẩu tài khoản tiệm kia.
+  accountGroupId     String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -130,6 +135,7 @@ model User {
   // email (mỗi tiệm là 1 khách hàng thương mại độc lập của bạn).
   @@unique([shopId, email])
   @@index([shopId])
+  @@index([accountGroupId])
 }
 
 model Customer {
@@ -626,6 +632,17 @@ model ShopSettings {
   invoiceNote             String?  // ghi chú cuối hoá đơn, riêng theo từng tiệm
   // Đơn dưới 3kg: in dòng chữ nhỏ này thay cho khung ghi chú/quảng cáo (vd thông báo đơn tối thiểu)
   smallOrderNote          String?
+  // Dòng phụ in ngay dưới tên tiệm trên hoá đơn, vd "Cơ sở 1"
+  invoiceSubtitle         String?
+  // Giảm giá toàn bộ dịch vụ theo khoảng ngày (vd khai trương). Ngày dạng
+  // YYYY-MM-DD giờ VN, gồm cả 2 đầu; hết endDate tự hết giảm (tính lúc tạo đơn).
+  // Tiền giảm ghi vào Order.discountAmount → trừ vào tổng bill.
+  promoEnabled            Boolean  @default(false)
+  promoType               String   @default("PERCENT") // PERCENT | AMOUNT (số tiền giảm mỗi đơn)
+  promoValue              Decimal  @default(0) @db.Decimal(12, 2)
+  promoStartDate          String?
+  promoEndDate            String?
+  promoLabel              String?  // vd "Khai trương"
   // FCM token các máy POS quầy (Sunmi) — nhận báo "đã nhận chuyển khoản" như loa
   posFcmTokens            String[] @default([])
   bankBin                 String?  // mã BIN ngân hàng theo chuẩn Napas, vd Vietcombank = 970436

@@ -1,3 +1,4 @@
+import { calcPromoDiscount } from '../../helpers/utils/promo';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { getCurrentShopId } from '../../helpers/context/tenant-context';
@@ -349,7 +350,13 @@ export const bookingService = {
       const line = w > 0 ? w * i.unitPrice * (i.quantity || 1) : i.quantity * i.unitPrice;
       return sum + line;
     }, 0);
-    const discountAmount = input.discountAmount ?? 0;
+    // Nhập tay giảm giá (>0) thì dùng; không thì áp đợt giảm giá đang chạy (khai trương…)
+    const promo = await prisma.shopSettings.findUnique({
+      where: { shopId: getCurrentShopId() },
+      select: { promoEnabled: true, promoType: true, promoValue: true, promoStartDate: true, promoEndDate: true },
+    });
+    const discountAmount =
+      input.discountAmount && input.discountAmount > 0 ? input.discountAmount : calcPromoDiscount(promo, total);
 
     return prisma.$transaction(async (tx) => {
       const order = await tx.order.create({

@@ -21,6 +21,36 @@ export const authController = {
     res.json({ success: true, data });
   }),
 
+  linkedShops: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await authService.listLinkedShops(req.user.sub);
+    res.json({ success: true, data });
+  }),
+
+  linkShop: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await authService.linkShop(req.user.sub, req.body);
+    res.json({ success: true, data });
+  }),
+
+  unlinkShop: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await authService.unlinkShop(req.user.sub, req.params.shopId);
+    res.json({ success: true, data });
+  }),
+
+  switchShop: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const data = await authService.switchShop(req.user.sub, req.body.shopId);
+    res.json({ success: true, data });
+  }),
+
+  clearFcmToken: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    await authService.clearFcmToken(req.user.sub);
+    res.json({ success: true });
+  }),
+
   updateFcmToken: asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const { token } = req.body;

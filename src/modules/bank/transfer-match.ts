@@ -116,5 +116,6 @@ export async function matchTransferToOrder(
       amount: String(Number(tx.amount)),
       fullyPaid: fullyPaid ? '1' : '0',
     },
+    { shopId: order.shopId },
   );
 }
