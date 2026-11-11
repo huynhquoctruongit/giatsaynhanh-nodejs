@@ -446,11 +446,68 @@ export const orderService = {
     });
   },
 
-  async remove(id: string, isAdmin = false) {
+  async remove(id: string, isAdmin = false, userId?: string) {
     const order = await this.getById(id);
     if (!isAdmin && order.status === OrderStatus.DELIVERED) {
       throw new BadRequestError('Cannot delete a delivered order');
     }
-    await prisma.order.delete({ where: { id } });
+    const by = userId
+      ? await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+      : null;
+    // Chụp lại đơn trước khi xoá cứng → tra được "ai xoá đơn nào, lúc nào".
+    await prisma.$transaction([
+      prisma.deletedOrder.create({
+        data: {
+          orderId: order.id,
+          code: order.code,
+          status: order.status,
+          customerName: order.customer?.name ?? null,
+          customerPhone: order.customer?.phone ?? null,
+          totalAmount: order.totalAmount,
+          orderCreatedAt: order.createdAt,
+          snapshot: JSON.parse(JSON.stringify(order)),
+          deletedById: userId ?? null,
+          deletedByName: by?.name ?? null,
+        } as Prisma.DeletedOrderUncheckedCreateInput,
+      }),
+      prisma.order.delete({ where: { id } }),
+    ]);
+  },
+
+  /** Nhật ký đơn đã xoá theo khoảng ngày xoá (giờ VN, YYYY-MM-DD, gồm 2 đầu). */
+  async deletedList(params: { from?: string; to?: string }) {
+    const ymd = /^\d{4}-\d{2}-\d{2}$/;
+    const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+    let from = params.from && ymd.test(params.from) ? params.from : today;
+    let to = params.to && ymd.test(params.to) ? params.to : from;
+    if (from > to) [from, to] = [to, from];
+    const start = new Date(`${from}T00:00:00+07:00`);
+    const end = new Date(new Date(`${to}T00:00:00+07:00`).getTime() + 24 * 3600 * 1000);
+    const rows = await prisma.deletedOrder.findMany({
+      where: { deletedAt: { gte: start, lt: end } },
+      orderBy: { deletedAt: 'desc' },
+    });
+    return {
+      from,
+      to,
+      count: rows.length,
+      totalAmount: rows.reduce((s, r) => s + Number(r.totalAmount), 0),
+      items: rows.map((r) => {
+        const snap = r.snapshot as { items?: { name?: string; quantity?: number }[] } | null;
+        return {
+          id: r.id,
+          orderId: r.orderId,
+          code: r.code,
+          status: r.status,
+          customerName: r.customerName,
+          customerPhone: r.customerPhone,
+          totalAmount: Number(r.totalAmount),
+          orderCreatedAt: r.orderCreatedAt,
+          deletedAt: r.deletedAt,
+          deletedByName: r.deletedByName,
+          items: (snap?.items ?? []).map((i) => ({ name: i.name ?? '', quantity: i.quantity ?? 0 })),
+        };
+      }),
+    };
   },
 };

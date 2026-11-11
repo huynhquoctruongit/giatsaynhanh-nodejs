@@ -36,6 +36,7 @@ const TENANT_MODELS = new Set([
   'TimeEntry',
   'CashClosing',
   'OrderAudit',
+  'DeletedOrder',
 ]);
 // ShopSettings (khoá 1-1 theo shopId) và BankTransaction/BankAccountShopMapping
 // (webhook không có JWT) được scope thủ công ở service riêng của chúng — cố ý

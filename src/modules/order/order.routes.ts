@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { orderController } from './order.controller';
-import { authStaff } from '../../middlewares/auth';
+import { authStaff, requireRole } from '../../middlewares/auth';
+import { UserRole } from '../../helpers/enums';
 import { validate } from '../../middlewares/validate';
 import {
   assignOrderSchema,
@@ -17,6 +18,7 @@ router.use(authStaff);
 
 router.get('/status-counts', orderController.statusCounts);
 router.get('/product-counts', orderController.productCounts);
+router.get('/deleted', requireRole(UserRole.ADMIN), orderController.deleted);
 router.get('/', validate(listOrderSchema), orderController.list);
 router.get('/:id', orderController.detail);
 router.post('/', validate(createOrderSchema), orderController.create);

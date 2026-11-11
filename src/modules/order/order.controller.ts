@@ -88,9 +88,17 @@ export const orderController = {
     res.json({ success: true, data: toOrderResponse(order) });
   }),
 
+  deleted: asyncHandler(async (req: Request, res: Response) => {
+    const data = await orderService.deletedList({
+      from: typeof req.query.from === 'string' ? req.query.from : undefined,
+      to: typeof req.query.to === 'string' ? req.query.to : undefined,
+    });
+    res.json({ success: true, data });
+  }),
+
   remove: asyncHandler(async (req: Request, res: Response) => {
     const isAdmin = req.user?.role === 'ADMIN';
-    await orderService.remove(req.params.id, isAdmin);
+    await orderService.remove(req.params.id, isAdmin, req.user?.sub);
     res.status(HTTP_STATUS.NO_CONTENT).send();
   }),
 
