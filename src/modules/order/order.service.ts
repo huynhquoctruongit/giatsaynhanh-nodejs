@@ -92,8 +92,10 @@ export const orderService = {
   },
 
   /**
-   * Số đơn theo từng loại dịch vụ trong khoảng ngày (cùng cách tính tab "Tất cả":
+   * Số lượng theo từng loại dịch vụ trong khoảng ngày (cùng cách tính tab "Tất cả":
    * đơn chưa giao theo ngày tạo + đơn đã giao theo ngày giao), nhiều → ít.
+   * Cộng theo SỐ LƯỢNG từng dòng (mỗi dòng tối thiểu 1): khách giặt 2 đôi giày
+   * (SL 2, hoặc 2 dòng, hoặc 2 đơn) → tính 2. Field vẫn tên orderCount để FE cũ không đổi.
    * Dùng cho dropdown "Loại dịch vụ" ở trang Đơn hàng.
    */
   async productCounts(params: { dateFrom?: Date; dateTo?: Date }) {
@@ -114,20 +116,20 @@ export const orderService = {
             }
           : {}),
       },
-      select: { productId: true, orderId: true, product: { select: { name: true } } },
+      select: { productId: true, quantity: true, product: { select: { name: true } } },
     });
-    const map = new Map<string, { productId: string; name: string; orders: Set<string> }>();
+    const map = new Map<string, { productId: string; name: string; count: number }>();
     for (const i of items) {
       if (!i.productId) continue;
       let row = map.get(i.productId);
       if (!row) {
-        row = { productId: i.productId, name: i.product?.name ?? '', orders: new Set() };
+        row = { productId: i.productId, name: i.product?.name ?? '', count: 0 };
         map.set(i.productId, row);
       }
-      row.orders.add(i.orderId);
+      row.count += Math.max(1, i.quantity || 0);
     }
     return [...map.values()]
-      .map((r) => ({ productId: r.productId, name: r.name, orderCount: r.orders.size }))
+      .map((r) => ({ productId: r.productId, name: r.name, orderCount: r.count }))
       .sort((a, b) => b.orderCount - a.orderCount || a.name.localeCompare(b.name, 'vi'));
   },
 
